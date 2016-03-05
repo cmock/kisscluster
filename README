@@ -17,8 +17,19 @@ Also: v4 only. Yes, 2016, but KISS.
 Requirements:
 
 Perl
-Net::Ping::External
 Config::Tiny
 Sys::Syslog
+IO::Socket::INET
+IO::Select
+Digest::SHA
 
 iproute2
+fping
+
+I use iproute2 because there seems to be no perl module that can
+return *all* IP addressess on a system, they only return the first
+address on an interface.
+
+Similiarily, fping is used because I found no perl module that can
+ping without root and with a timeout; and because fping, as opposed to
+"ping", has a consistent commandline syntax.

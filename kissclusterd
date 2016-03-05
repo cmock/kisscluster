@@ -1,16 +1,134 @@
 #!/usr/bin/perl -w
 use strict;
-use Net::Ping::External qw(ping);
 use Config::Tiny;
 use Getopt::Std;
 use Sys::Syslog qw(:standard);
 use Sys::Hostname;
 use IO::Socket::INET;
+use IO::Select;
+use Digest::SHA qw(hmac_sha256_base64);
 use Data::Dumper;
 
-my($cfg, $verbose, $hostname, @storaddr, @prodaddr, $storsock, $prodsock);
+my @networks = ('stor', 'prod');
+my($cfg, $verbose, $hostname, $addrs, $socks);
 
 $cfg = initialize();
+
+# this never returns
+mainloop();
+
+
+sub mainloop {
+  my $sel = IO::Select->new();
+
+  for my $sock (values %$socks) {
+    $sel->add($sock);
+  }
+
+  my $state = 'init';
+  my $prev_state = $state;
+  my $starttime = time();
+  my $last_xmit = 0;
+  my $last_recv = { map { $_ => 0 } (@networks, 'ping') };
+  my $peer_dead = { map { $_ => 1 } (@networks, 'ping') };
+  my $peer_prios = { map { $_ => $cfg->{base_priority} } @networks };
+  my $own_prio = $cfg->{base_priority};
+  my $timeout = 0;
+
+  while (1) {
+    my @ready = $sel->can_read($timeout);
+
+    # read keepalives from peer
+    for my $ready (@ready) {
+      for my $net (@networks) {
+	if ($ready == $socks->{$net}) {
+	  my $res;
+	  if(defined($res = read_packet($ready, $net))) {
+	    $peer_prios->{$net} = $res;
+	    $last_recv->{$net} = time();
+	  }
+	}
+      }
+    }
+
+    ## do we need to xmit in this loop iteration?
+    ## we also only check for state changes once per keepalive_interval
+    ## so we don't have race conditions when a link goes up/down...
+    my $need_xmit = (time() - $last_xmit >= $cfg->{keepalive_interval});
+    if($need_xmit) {
+      $last_xmit = time();
+      if(ping($cfg->{ping_addr})) {
+	$last_recv->{ping} = time();
+      }
+
+      # calculate our priority
+      $own_prio = $cfg->{base_priority};
+      for my $net ((@networks, 'ping')) {
+	if (time() - $last_recv->{$net} > $cfg->{keepalive_deadtime}) {
+	  if (!$peer_dead->{$net}) {
+	    logger('info', '%s peer has died', $net);
+	  }
+	  $peer_dead->{$net} = 1;
+	  $peer_prios->{$net} = 0;
+	  $own_prio -= $cfg->{priority_penalty};
+	} else {
+	  if ($peer_dead->{$net}) {
+	    logger('info', '%s peer has come alive', $net);
+	  }
+	  $peer_dead->{$net} = 0;
+	}
+      }
+      if ($state eq 'init') {
+	# tried to reduce our announced prio during init, but that just leads
+	# to the faster node going all_vms -> primary_vms for a short time
+	# when both are started nearly simultaneously
+	if (time() - $starttime >= $cfg->{keepalive_deadtime}) {
+	  $state = 'init_done';
+	}
+      }
+
+      # we can only xmit keepalive packets once we have calculated our prio
+      # but ping enters in the prio calc; that's why we split it up
+      for my $net (@networks) {
+	my $pkt = keepalive_packet($addrs->{$net}->[0], $own_prio);
+	$socks->{$net}->send($pkt, undef) || die "send: $!\n";
+      }
+
+      # change state, if needed
+      if ($state ne 'init') {
+	my $max_peer_prio = 0;
+	for my $net (@networks) {
+	  if ($peer_prios->{$net} > $max_peer_prio) {
+	    $max_peer_prio = $peer_prios->{$net};
+	  }
+	}
+	my $new_state;
+	if ($max_peer_prio == $own_prio) {
+	  $new_state = 'primary_vms';
+	} elsif ($max_peer_prio > $own_prio) {
+	  $new_state = 'no_vms';
+	} else {
+	  $new_state = 'all_vms';
+	}
+	# flapping prevention
+	print "state = $state, prev/new $prev_state/$new_state\n";
+	if ($new_state ne $state && $prev_state eq $new_state) {
+	  logger('notice', 'switching state: %s -> %s', $state, $new_state);
+	  logger('info', 'own prio: %d, peer prio: %d', $own_prio, $max_peer_prio);
+	  $state = $new_state;
+	  # XXX really switch state
+	}
+	$prev_state = $new_state;
+      }
+    } # if($need_xmit)
+
+    # calc new timeout
+    $timeout = $last_xmit + $cfg->{keepalive_interval} - time();
+    if($timeout < 0) {
+      $timeout = 0;
+    }
+  }
+}
 
 
 
@@ -37,38 +155,28 @@ sub initialize {
 
   openlog("kissclusterd", "pid", $facility) || die "openlog: $!\n";
 
-  @storaddr = parse_addrs('storage_addrs');
-  @prodaddr = parse_addrs('production_addrs');
+  for my $net (@networks) {
+    $addrs->{$net} = parse_addrs("${net}_addrs");
+  }
 
   # open them sockets
   unless(exists $cfg->{keepalive_port}) {
     logger('err', "keepalive_port not defined in config");
     exit(1);
   }
-  unless($storsock =
-	 IO::Socket::INET->new(LocalAddr => $storaddr[0],
-			       LocalPort => $cfg->{keepalive_port},
-			       PeerAddr => $storaddr[1],
-			       PeerPort => $cfg->{keepalive_port},
-			       Proto => 'udp',
-			       Type => SOCK_DGRAM,
-			       ReuseAddr => 1,
-			       Blocking => 0)) {
-    logger('err', 'Cannot create storage net socket: %s', $!);
-    exit(1);
-  }
-
-  unless($prodsock =
-	 IO::Socket::INET->new(LocalAddr => $prodaddr[0],
-			       LocalPort => $cfg->{keepalive_port},
-			       PeerAddr => $prodaddr[1],
-			       PeerPort => $cfg->{keepalive_port},
-			       Proto => 'udp',
-			       Type => SOCK_DGRAM,
-			       ReuseAddr => 1,
-			       Blocking => 0)) {
-    logger('err', 'Cannot create production net socket: %s', $!);
-    exit(1);
+  for my $net (@networks) {
+    unless ($socks->{$net} =
+	    IO::Socket::INET->new(LocalAddr => $addrs->{$net}->[0],
+				  LocalPort => $cfg->{keepalive_port},
+				  PeerAddr => $addrs->{$net}->[1],
+				  PeerPort => $cfg->{keepalive_port},
+				  Proto => 'udp',
+				  Type => SOCK_DGRAM,
+				  ReuseAddr => 1,
+				  Blocking => 0)) {
+      logger('err', 'Cannot create $net socket: %s', $!);
+      exit(1);
+    }
   }
 
   # reset verbose to configured value
@@ -76,6 +184,59 @@ sub initialize {
   logger('info', "started");
 
   $cfg;
+}
+
+# read a packet on a socket
+# check it
+# if all is OK, return the priority from that packet
+# if not, return undef
+sub read_packet {
+  my ($sock, $net) = @_;
+  my $pkt;
+  my $peer = $sock->recv($pkt, 9999);
+  unless(defined $peer) {
+    logger('err', 'recv on %s: %s', $net, $!);
+    return undef;
+  }
+  unless($pkt =~ /\A((\d+):([\d\.]+):(\d+):(\d+)):([a-zA-Z0-9\/\+]+)\Z/) {
+    logger('err', 'unparseable packet received on %s', $net);
+    return undef;
+  }
+  my($hmaced, $version, $sender, $prio, $timestamp, $received_hmac) =
+    ($1, $2, $3, $4, $5, $6);
+  my $calculated_hmac = hmac_sha256_base64($hmaced, $cfg->{keepalive_secret});
+  if($calculated_hmac ne $received_hmac) {
+    logger('err', 'bad HMAC on %s', $net);
+    return undef;
+  }
+  if($version != 1) {
+    logger('err', 'bad proto version received %d on %s', $version, $net);
+    return undef;
+  }
+  if($sender ne $addrs->{$net}->[1]) {
+    logger('err', 'bad sender %s received on %s', $sender, $net);
+    return undef;
+  }
+  if($prio > $cfg->{base_priority} || $prio < 1) {
+    logger('err', 'priority %d out of bounds from %s', $prio, $sender);
+    return undef;
+  }
+  if(abs($timestamp - time()) > $cfg->{keepalive_interval}) {
+    logger('err', 'timestamp from %s out of window, age %d',
+	   $sender, time() - $timestamp);
+  }
+  return $prio;
+}
+
+sub keepalive_packet {
+  my($sender, $prio) = @_;
+  my $pkt = sprintf("%d:%s:%d:%d",
+		    1, # proto_version
+		    $sender,
+		    $prio,
+		    time());
+  $pkt .= ':' . hmac_sha256_base64($pkt, $cfg->{keepalive_secret});
+  $pkt;
 }
 
 # order two addresses from a config value so ours is first
@@ -107,7 +268,7 @@ sub parse_addrs {
     logger('err', "Something's wrong with other's address on %s: '%s'",
 	   $key, join(" ", @not_mine));
   }
-  return(@mine, @not_mine);
+  return([@mine, @not_mine]);
 }
 
 # return a hash keyed by all local ip addresses
@@ -120,6 +281,18 @@ sub get_local_ipaddrs {
     $addrs{$1}++;
   }
   \%addrs;
+}
+
+sub ping {
+  my $addr = shift;
+  # sadly, fping is not completely quiet...
+  open(my $STDSAVE, ">&", STDERR);
+  open(STDERR, ">", "/dev/null");
+  my $res = !system($cfg->{fping}, '-c', 1, '-q', '-t',
+		    $cfg->{ping_timeout} * 1000,
+		    $addr);
+  open(STDERR, ">&", $STDSAVE);
+  $res;
 }
 
 sub logger {
