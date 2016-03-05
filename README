@@ -1,0 +1,24 @@
+see https://www.tahina.priv.at/kisscluster.html
+
+this is the HA daemon.
+
+Usage:
+
+keepalived -c configfile [-v]
+
+-v is for verbose.
+
+should be run under an unprivileged account.
+
+Sadly only for linux, due to the dependency on iproute2.
+
+Also: v4 only. Yes, 2016, but KISS.
+
+Requirements:
+
+Perl
+Net::Ping::External
+Config::Tiny
+Sys::Syslog
+
+iproute2

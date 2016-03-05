@@ -1,0 +1,132 @@
+#!/usr/bin/perl -w
+use strict;
+use Net::Ping::External qw(ping);
+use Config::Tiny;
+use Getopt::Std;
+use Sys::Syslog qw(:standard);
+use Sys::Hostname;
+use IO::Socket::INET;
+use Data::Dumper;
+
+my($cfg, $verbose, $hostname, @storaddr, @prodaddr, $storsock, $prodsock);
+
+$cfg = initialize();
+
+
+
+sub initialize {
+  my $usage = "usage: $0 -c configfile [-v]\n";
+
+  my %opts;
+  getopts('c:v', \%opts) || die $usage;
+
+  defined $opts{c} || die $usage;
+
+  $verbose = $opts{v} || 0;
+
+  # we log everything to stdout until we're started, as these are only
+  # error messages
+  my $real_verbose = $verbose;
+  $verbose = 1;
+
+  $cfg = Config::Tiny->read($opts{c}) ||
+    die "reading config: $Config::Tiny::errstr\n";
+  # we have no sections in the config, save some typing
+  $cfg = $cfg->{_};
+  my $facility = $cfg->{syslog_facility} || 'LOG_DAEMON';
+
+  openlog("kissclusterd", "pid", $facility) || die "openlog: $!\n";
+
+  @storaddr = parse_addrs('storage_addrs');
+  @prodaddr = parse_addrs('production_addrs');
+
+  # open them sockets
+  unless(exists $cfg->{keepalive_port}) {
+    logger('err', "keepalive_port not defined in config");
+    exit(1);
+  }
+  unless($storsock =
+	 IO::Socket::INET->new(LocalAddr => $storaddr[0],
+			       LocalPort => $cfg->{keepalive_port},
+			       PeerAddr => $storaddr[1],
+			       PeerPort => $cfg->{keepalive_port},
+			       Proto => 'udp',
+			       Type => SOCK_DGRAM,
+			       ReuseAddr => 1,
+			       Blocking => 0)) {
+    logger('err', 'Cannot create storage net socket: %s', $!);
+    exit(1);
+  }
+
+  unless($prodsock =
+	 IO::Socket::INET->new(LocalAddr => $prodaddr[0],
+			       LocalPort => $cfg->{keepalive_port},
+			       PeerAddr => $prodaddr[1],
+			       PeerPort => $cfg->{keepalive_port},
+			       Proto => 'udp',
+			       Type => SOCK_DGRAM,
+			       ReuseAddr => 1,
+			       Blocking => 0)) {
+    logger('err', 'Cannot create production net socket: %s', $!);
+    exit(1);
+  }
+
+  # reset verbose to configured value
+  $verbose = $real_verbose;
+  logger('info', "started");
+
+  $cfg;
+}
+
+# order two addresses from a config value so ours is first
+sub parse_addrs {
+  my $key = shift;
+  unless(exists $cfg->{$key}) {
+    logger('err', "Config key %s is missing", $key);
+    exit(1);
+  }
+  unless($cfg->{$key} =~ /^\s*([\d\.]+)\s+([\d\.]+)\s*$/) {
+    logger('err', "Cannot parse %s", $key);
+    exit(1);
+  }
+  my(@a) = ($1, $2);
+  my $localaddrs = get_local_ipaddrs();
+  my(@mine,@not_mine);
+  for my $a (@a) {
+    if($localaddrs->{$a}) {
+      push(@mine, $a);
+    } else {
+      push(@not_mine, $a);
+    }
+  }
+  if(scalar @mine != 1) {
+    logger('err', "Something's wrong with my address on %s: '%s'",
+	   $key, join(" ", @mine));
+  }
+  if(scalar @not_mine != 1) {
+    logger('err', "Something's wrong with other's address on %s: '%s'",
+	   $key, join(" ", @not_mine));
+  }
+  return(@mine, @not_mine);
+}
+
+# return a hash keyed by all local ip addresses
+sub get_local_ipaddrs {
+  my @res = qx|$cfg->{iproute} addr show|;
+  my %addrs;
+
+  foreach (@res) {
+    /^\s+inet ([\d\.]+)\/\d+/ || next;
+    $addrs{$1}++;
+  }
+  \%addrs;
+}
+
+sub logger {
+  syslog(@_);
+  if($verbose) {
+    shift;
+    printf @_;
+    print "\n";
+  }
+}
