@@ -34,9 +34,19 @@ sub mainloop {
   my $peer_prios = { map { $_ => $cfg->{base_priority} } @networks };
   my $own_prio = $cfg->{base_priority};
   my $timeout = 0;
+  my $last_loop_time = time();
 
   while (1) {
     my @ready = $sel->can_read($timeout);
+
+    # handle time jumps
+    my $loop_time = time() - $last_loop_time;
+    if(abs($loop_time) > $cfg->{keepalive_interval}) {
+      logger('crit', 'Whoa, time must have jumped, last loop would be %d seconds. Exiting',
+	    $loop_time);
+      exit(2);
+    }
+    $last_loop_time = time();
 
     # read keepalives from peer
     for my $ready (@ready) {
@@ -104,19 +114,18 @@ sub mainloop {
 	}
 	my $new_state;
 	if ($max_peer_prio == $own_prio) {
-	  $new_state = 'primary_vms';
+	  $new_state = 'primary-vms';
 	} elsif ($max_peer_prio > $own_prio) {
-	  $new_state = 'no_vms';
+	  $new_state = 'no-vms';
 	} else {
-	  $new_state = 'all_vms';
+	  $new_state = 'all-vms';
 	}
 	# flapping prevention
-	print "state = $state, prev/new $prev_state/$new_state\n";
 	if ($new_state ne $state && $prev_state eq $new_state) {
 	  logger('notice', 'switching state: %s -> %s', $state, $new_state);
 	  logger('info', 'own prio: %d, peer prio: %d', $own_prio, $max_peer_prio);
 	  $state = $new_state;
-	  # XXX really switch state
+	  switch_state($state);
 	}
 	$prev_state = $new_state;
       }
@@ -224,8 +233,15 @@ sub read_packet {
   if(abs($timestamp - time()) > $cfg->{keepalive_interval}) {
     logger('err', 'timestamp from %s out of window, age %d',
 	   $sender, time() - $timestamp);
+    return undef;
   }
   return $prio;
+}
+
+sub switch_state {
+  my $new_state = shift;
+#  logger('notice', 'switching state to %s', $new_state);
+  system("/bin/systemctl start $new_state.target &");
 }
 
 sub keepalive_packet {
