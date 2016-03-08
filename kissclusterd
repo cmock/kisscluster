@@ -41,7 +41,7 @@ sub mainloop {
 
     # handle time jumps
     my $loop_time = time() - $last_loop_time;
-    if(abs($loop_time) > $cfg->{keepalive_interval}) {
+    if(abs($loop_time) > $cfg->{keepalive_interval} * 1.2) {
       logger('crit', 'Whoa, time must have jumped, last loop would be %d seconds. Exiting',
 	    $loop_time);
       exit(2);
