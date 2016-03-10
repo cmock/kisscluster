@@ -1,0 +1,41 @@
+# -*- yaml -*-
+#
+# prepare a host for ansible connections
+# add user + sudo rights
+
+---
+- hosts: all
+  sudo: true
+
+  tasks:
+
+  - name: enable sftp
+    lineinfile: dest=/etc/ssh/sshd_config regexp='^Subsystem\s+sftp'
+      line='Subsystem sftp /usr/lib/sftp-server'
+    notify: restart sshd
+
+  - name: add ansible user
+    user: name=ansible state=present comment='ansible user' createhome=yes 
+
+  - name: make ~ansible/.ssh
+    file: dest=/home/ansible/.ssh state=directory owner=ansible group=ansible
+      mode=0700
+
+  - name: install authorized_keys
+    copy: src=authorized_keys
+      dest=/home/ansible/.ssh/authorized_keys
+      owner=ansible group=ansible mode=0400
+
+  - name: install sudo
+    apt: pkg=sudo
+
+  - name: enable sudoers.d
+    lineinfile: dest=/etc/sudoers create=no state=present line='#includedir /etc/sudoers.d'
+
+  - name: configure sudoers
+    copy: dest=/etc/sudoers.d/ansible src=files/sudoers-ansible validate='visudo -cf %s' mode=0440 owner=root group=root
+
+  handlers:
+
+  - name: restart sshd
+    service: name=ssh state=restarted

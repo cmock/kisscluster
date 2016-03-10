@@ -10,6 +10,8 @@ StopWhenUnneeded=false
 [Service]
 ExecStart=/usr/sbin/kissclusterd -c /etc/kissclusterd.conf
 Restart=always
+User=kissclusterd
+Group=kissclusterd
 
 [Install]
 WantedBy=multi-user.target
