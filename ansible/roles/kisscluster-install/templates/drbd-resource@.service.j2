@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description= DRBD resource %i
+Requires=drbd.service
+After=drbd.service
+StopWhenUnneeded=true
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/drbd-primary-helper %i
+ExecStopPost=/sbin/drbdadm secondary %i
+RemainAfterExit=true
+TimeoutSec=300
+
+[Install]
+
+
+
+# {{ ansible_managed }}

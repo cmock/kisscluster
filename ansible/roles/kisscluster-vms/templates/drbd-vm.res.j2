@@ -1,0 +1,28 @@
+# {{ ansible_managed }}
+#
+# Guest config for {{ item.name }}
+
+resource {{item.name}} {
+  volume 0 {
+    disk /dev/vmvg/{{item.name}}_root;
+    device /dev/drbd_{{item.name}}_root minor {{item.drbd_minor}};
+    meta-disk internal;
+  }
+
+{% for disk in item.more_disks %}
+  volume {{disk.drbd_volume}} {
+    disk /dev/vmvg/{{item.name}}_{{disk.name}};
+    device /dev/drbd_{{item.name}}_{{disk.name}} minor {{disk.drbd_minor}};
+    meta-disk internal;
+  }
+{% endfor %}
+
+{% for host in cluster_members %}
+  on {{host.name}} {
+    address {{host.stor_addr}}:{{7788+item.drbd_minor}};
+  }
+
+{% endfor %}
+}
+
+# {{ ansible_managed }}

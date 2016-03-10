@@ -1,0 +1,10 @@
+## this is an example config file for a VM
+name: vm1
+primary_on: node1
+network_bridge: br0
+ram_megs: 512
+root_disk_size: 10G
+cpus: 2
+more_disks:
+  - name: var
+    size: 100G

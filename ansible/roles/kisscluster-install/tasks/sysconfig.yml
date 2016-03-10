@@ -1,0 +1,9 @@
+# -*- yaml -*-
+---
+- name: install interfaces file
+  template: src=interfaces.j2 dest=/etc/network/interfaces
+    owner=root group=root mode=0444 backup=yes
+
+- name: autoload kvm module
+  lineinfile: dest=/etc/modules line='kvm'
+    

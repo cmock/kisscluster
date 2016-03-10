@@ -1,0 +1,19 @@
+# group vars for "cluster1" cluster
+cluster_name: cluster1
+cluster_members:
+- name: node1
+  prod_addr: 192.168.123.17
+  stor_addr: 192.168.124.17
+- name: node2
+  prod_addr: 192.168.123.18
+  stor_addr: 192.168.124.18
+prod_if: eth0
+stor_if: eth1
+stor_mtu: 9000
+prod_netmask: 255.255.255.0
+stor_netmask: 255.255.255.0
+default_gateway: 192.168.123.1
+ping_addr: 192.168.123.2
+vmvg_part: /dev/md1
+vnc_keyboard_lang: de
+mac_addr_base: 02:00:c0:ff:ee

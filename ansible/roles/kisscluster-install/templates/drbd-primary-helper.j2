@@ -1,0 +1,10 @@
+#!/bin/sh
+# {{ ansible_managed}}
+
+# endless loop, timeout is handled by systemd
+while :; do
+    if /sbin/drbdadm primary $1; then exit 0; fi
+    sleep 2
+done
+
+# {{ ansible_managed}}

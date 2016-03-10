@@ -1,0 +1,19 @@
+# -*- yaml -*-
+---
+- name: copy drbd module params
+  template: src=drbd.conf.j2 dest=/etc/modprobe.d/drbd.conf
+    owner=root group=root mode=0444
+
+- name: install drbd global_common.conf
+  template: src=drbd-global_common.conf.j2 dest=/etc/drbd.d/global_common.conf
+    owner=root group=root mode=0444 backup=yes
+  notify: drbdadm adjust
+
+- name: install modified drbd service file
+  template: src=drbd.service.j2 dest=/etc/systemd/system/drbd.service
+    owner=root group=root mode=0444
+  notify: systemctl daemon-reload
+
+- name: create vmvg volume group
+  lvg: vg=vmvg pvs={{vmvg_part}}
+

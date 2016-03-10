@@ -1,0 +1,33 @@
+# -*- yaml -*-
+---
+- name: install packages
+  apt: pkg={{item}} state=present install_recommends=no
+  with_items:
+    - bridge-utils
+    - ntp
+    - lvm2
+    - drbd-utils
+    - qemu-kvm
+    - socat
+    - iproute2
+    - fping
+    - libconfig-tiny-perl
+    - sudo
+
+- name: remove some stuff
+  apt: pkg={{item}} state=absent purge=yes
+  with_items:
+    - avahi-autoipd
+    - isc-dhcp-client
+    - isc-dhcp-common
+    - avahi-daemon
+    - network-manager
+
+- name: install vm-monitor helper
+  copy: src=vm-monitor dest=/usr/sbin/vm-monitor
+    owner=root group=root mode=0555
+    
+- name: install nuke script
+  copy: src=nuke-vm.sh dest=/usr/local/sbin/nuke-vm.sh
+    owner=root group=root mode=0550
+    

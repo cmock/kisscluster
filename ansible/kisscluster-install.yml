@@ -1,0 +1,5 @@
+# -*- yaml -*-
+- name: install cluster1
+  hosts: cluster1
+  roles:
+    - { role: kisscluster-install, cluster_group: cluster1 }

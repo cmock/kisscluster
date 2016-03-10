@@ -1,0 +1,26 @@
+# -*- yaml -*-
+---
+- name: install unit files
+  template: src={{item}}.j2 dest=/etc/systemd/system/{{item}}
+    owner=root group=root mode=0444
+  with_items:
+    - drbd-resource@.service
+    - no-vms.target
+    - primary-vms.target
+    - all-vms.target
+
+- name: enable unit files
+  command: /bin/systemctl enable {{item}}
+  with_items:
+    - drbd-resource@.service
+    - no-vms.target
+    - primary-vms.target
+    - all-vms.target
+
+- name: install drbd-primary-helper
+  template: src=drbd-primary-helper.j2 dest=/sbin/drbd-primary-helper
+    owner=root group=root mode=0555
+
+- name: systemctl daemon-reload
+  command: /bin/systemctl daemon-reload
+  

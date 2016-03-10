@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description= Run no VM images locally
+Requires=multi-user.target
+After=multi-user.target
+Conflicts=all-vms.target primary-vms.target
+
+[Install]
+
+# {{ ansible_managed }}

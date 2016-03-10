@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+kissclusterd ALL=NOPASSWD: /bin/systemctl start no-vms.target
+kissclusterd ALL=NOPASSWD: /bin/systemctl start primary-vms.target
+kissclusterd ALL=NOPASSWD: /bin/systemctl start all-vms.target

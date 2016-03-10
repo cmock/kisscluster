@@ -1,0 +1,8 @@
+name: vm1
+primary_on: node1
+network_bridge: br0
+ram_megs: 1024
+root_disk_size: 10G
+more_disks: []
+cpus: 1
+

@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+
+auto lo {{stor_if}} br0
+
+iface lo inet loopback
+
+{% for member in cluster_members %}
+{% if member.name == inventory_hostname %}
+iface {{stor_if}} inet static
+  address {{member.stor_addr}}
+  netmask {{stor_netmask}}
+  mtu {{stor_mtu|default(1500)}}
+
+iface br0 inet static
+  address {{member.prod_addr}}
+  netmask {{prod_netmask}}
+  gateway {{default_gateway}}
+  bridge_ports {{prod_if}}
+  bridge_stp off
+  bridge_fd 0
+{% endif %}
+{% endfor %}
+
+# {{ ansible_managed }}

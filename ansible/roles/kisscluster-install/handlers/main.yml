@@ -1,0 +1,12 @@
+# -*- yaml -*-
+---
+
+- name: drbdadm adjust
+  command: drbdadm adjust all
+
+- name: kissclusterd reload
+  service: name=kissclusterd state=restarted
+
+- name: systemctl daemon-reload
+  command: /bin/systemctl daemon-reload
+  

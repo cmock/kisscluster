@@ -1,0 +1,18 @@
+contains the definitions of the guest VMs for kisscluster.
+
+this directory has one sub-directory per cluster, named after the
+cluster. those directories have one YAML file per VM.
+
+VM files must be named *.yml, other files (in the per-cluster
+directories) are ignored; so you can disable machines by e.g. renaming
+them to "*.yml.disabled"
+
+this directory also has a file per cluster, "clustername.yml", which
+is both the output of the processing and contains static, generated
+information like DRBD minor numbers.
+
+Also, the cluster protocol secret will be stored in a file
+"clustername.secret" by the installation.
+
+DO NOT DELETE THOSE FILES! 
+

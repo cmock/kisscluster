@@ -1,0 +1,122 @@
+#!/usr/bin/perl -w
+use strict;
+use List::Util qw(max);
+use YAML qw(LoadFile DumpFile);
+use Data::Dumper;
+
+my $debug = 1;
+
+#
+# process the VM config files for a cluster and output kinda
+# dynamic inventory data for ansible.
+#
+# except it's not really dynamic inventory, because that cannot be referenced
+# from a playbook, but only in global config/commandline, which sucks.
+#
+
+my $usage = "usage: $0 directory\n";
+my $dir = shift || die $usage;
+-d $dir || die "$dir is not a directory\n";
+
+$dir =~ s/\/$//g;
+
+my($cluster) = $dir;
+$cluster =~ s/^.*\///g;
+
+# the data:
+my $vm = {};
+my $active_vm = {};
+my $disabled_vm = {};
+
+foreach my $file (glob("$dir/*.yml")) {
+  my $d = parse_yaml($file, 0);
+  $vm->{$d->{name}} = $d;
+}
+
+my $db = parse_yaml("$dir.yml", 1); # OK if missing
+if(exists $db->{vm}) {
+  my $g = $db->{vm};
+  $db = {};
+  for my $h (@$g) {
+    $db->{$h->{name}} = $h;
+  }
+} else {
+  $db = {};
+}
+## find removed machines
+for my $g (keys %$db) {
+  unless(exists $vm->{$g}) {
+    warn "gone: $g\n" if $debug;
+    $vm->{$g} = $db->{$g};
+    $vm->{$g}->{disabled} = 'true';
+  }
+}
+
+my $max_drbd_minor = -1;
+## assign/generate DRBD minors
+for my $g (keys %$db) {
+  if(exists $db->{$g}->{drbd_minor}) {
+    $vm->{$g}->{drbd_minor} = $db->{$g}->{drbd_minor};
+    $max_drbd_minor = max($max_drbd_minor, $db->{$g}->{drbd_minor});
+  }
+}
+for my $g (keys %$vm) {
+  if($max_drbd_minor >= 252) {
+    die "DRBD minor numbers are exhausted!\nManual intervention is needed...";
+  }
+  unless(exists $vm->{$g}->{drbd_minor}) {
+    $max_drbd_minor = $max_drbd_minor - ($max_drbd_minor % 4) + 4;
+    $vm->{$g}->{drbd_minor} = $max_drbd_minor;
+    $db->{$g}->{drbd_minor} = $max_drbd_minor;
+    warn "assigned minor $max_drbd_minor to $g\n" if $debug;
+  }
+  ## and some fixup
+  unless(exists $vm->{$g}->{more_disks}) {
+    $vm->{$g}->{more_disks} = [];
+  }
+  my $volume = 0;
+  for my $md (@{$vm->{$g}->{more_disks}}) {
+    if($volume >= 3) {
+      die "vm $g has more than 3 additional disks in more_disks!\n";
+    }
+    $md->{drbd_volume} = ++$volume;
+    $md->{drbd_minor} = $vm->{$g}->{drbd_minor} + $volume;
+  }
+}
+
+# finally, make two more top-level keys -- active_vms and disabled_vms,
+# because ansible is too stupid to use when: on the item in a loop...
+for my $g (keys %$vm) {
+  if(exists $vm->{$g}->{disabled}) {
+    $disabled_vm->{$g} = $vm->{$g};
+  } else {
+    $active_vm->{$g} = $vm->{$g};
+  }
+}
+
+save_output_yaml({vm => [values %$vm],
+		  active_vm => [values %$active_vm],
+		  disabled_vm => [values %$disabled_vm]}, "$dir.yml");
+
+sub parse_yaml {
+  my $fn = shift;
+  my $ignore_missing_file = shift;
+
+  if($ignore_missing_file && !-e $fn) {
+    warn "missing file $fn\n";
+    return {};
+  }
+  my $y;
+  eval {
+    $y = LoadFile($fn);
+  };
+  if($@) {
+    die "parse_yaml($fn): $@\n";
+  }
+  $y;
+}
+
+sub save_output_yaml {
+  my($db, $fn) = @_;
+  DumpFile($fn, $db) || die "YAML::DumpFile($fn, DB): $!\n";
+}

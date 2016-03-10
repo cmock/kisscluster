@@ -1,0 +1,10 @@
+# -*- yaml -*-
+---
+- name: make qemu-bridge-helper setuid root
+  command: /usr/sbin/dpkg-statoverride --add --update root kvm 4550 /usr/lib/qemu/qemu-bridge-helper
+  failed_when: false
+
+- name: install bridge.conf
+  template: src=qemu-bridge.conf.j2 dest=/etc/qemu/bridge.conf
+    owner=root group=kvm mode=0440
+    

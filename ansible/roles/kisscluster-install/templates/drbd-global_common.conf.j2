@@ -1,0 +1,48 @@
+# {{ ansible_managed }}
+# DRBD is the result of over a decade of development by LINBIT.
+# In case you need professional services for DRBD or have
+# feature requests visit http://www.linbit.com
+
+global {
+	usage-count no;
+}
+
+common {
+	handlers {
+		 split-brain "/usr/lib/drbd/notify-split-brain.sh root";
+		 # on io error, drop out of the cluster
+		 local-io-error "/bin/systemctl start no-cluster.target";
+	}
+
+	startup {
+		wfc-timeout 300;
+		degr-wfc-timeout 120;
+		outdated-wfc-timeout 120;
+	}
+
+	options {
+	}
+
+	disk {
+	     on-io-error call-local-io-error;
+	}
+
+	net {
+	    protocol C;
+	    # XXX run performance tests
+	    # crc32c should be implemented in hardware
+	    verify-alg crc32c;
+	    csums-alg crc32c;
+	    data-integrity-alg crc32c;
+	    
+	    after-sb-0pri discard-zero-changes;
+	    after-sb-1pri consensus;
+	    after-sb-2pri disconnect;
+	}
+
+	syncer {
+	# no manual rate set, let the automagic calculation decide
+        }
+}
+
+# {{ ansible_managed }}

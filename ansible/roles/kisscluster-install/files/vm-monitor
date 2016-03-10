@@ -1,0 +1,50 @@
+#!/usr/bin/perl -w
+use strict;
+use IO::Socket::UNIX;
+
+# sends a command to the monitor and waits for the socket to close
+# needed in the case of the "powerdown" command.
+
+my $usage = "usage: $0 vm-name command
+commands:
+- powerdown
+- iso imagefilename
+- reset
+";
+
+my $dir = '/run/kvm';
+my $vm = shift || die $usage;
+my $cmd = shift || die $usage;
+
+my $mon = IO::Socket::UNIX->new(Type => SOCK_STREAM(),
+				Peer => "$dir/$vm.mon",
+			       ) || die "opening socket: $!\n";
+
+if($cmd eq 'powerdown') {
+  print $mon "system_powerdown\n";
+  # no shutdown, just wait for the VM to stop
+  while(<$mon>) {
+    print;
+  }
+  print "\n";
+  exit(0);
+} elsif($cmd eq 'iso') {
+  my $iso = shift;
+  if($iso) {
+    -f $iso || die "ISO $iso not found\n";
+    print $mon "change ide1-cd0 $iso\n";
+  } else {
+    print $mon "eject ide1-cd0\n";
+  }
+} elsif($cmd eq 'reset') {
+  print $mon "system_reset\n";
+} else {
+  die "unknown command \"$cmd\"\n";
+}
+$mon->shutdown(1);
+while(<$mon>) {
+  print;
+}
+print "\n";
+
+

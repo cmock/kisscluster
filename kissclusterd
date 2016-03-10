@@ -241,7 +241,7 @@ sub read_packet {
 sub switch_state {
   my $new_state = shift;
 #  logger('notice', 'switching state to %s', $new_state);
-  system("/bin/systemctl start $new_state.target &");
+  system("$cfg->{systemctl} start $new_state.target &");
 }
 
 sub keepalive_packet {

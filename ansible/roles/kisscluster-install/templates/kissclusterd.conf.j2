@@ -1,18 +1,17 @@
 # config file for kissclusterd
 
 # IP addresses of both nodes (separated by whitespace)
-stor_addrs = 192.168.57.143 192.168.57.3
-prod_addrs = 10.1.1.2 10.1.1.1
-# IP address of switch, or whatever the third player is. needs to respond
-# to ICMP pings
-ping_addr = 192.168.100.1
+stor_addrs = {% for member in cluster_members %}{{member.stor_addr}} {% endfor %}
+prod_addrs = {% for member in cluster_members %}{{member.prod_addr}} {% endfor %}
+# IP address of switch, or whatever the third player is.
+# needs to respond to ICMP pings
+ping_addr = {{ping_addr}}
 ping_timeout = 1
-
 
 # which UDP port to use for the keepalive protocol
 keepalive_port = 5324
 # secret for the network protocol
-keepalive_secret = wiu6Wu5Z
+keepalive_secret = "{{lookup('password', 'vm-config/' + clustername + '.secret' length=16) }}"
 
 # priorities for the keepalive protocol
 base_priority = 100
@@ -31,4 +30,3 @@ syslog_facility = LOG_DAEMON
 # some system dependencies; full path, please!
 iproute = /sbin/ip
 fping = /usr/bin/fping
-systemctl = /usr/bin/sudo /bin/systemctl

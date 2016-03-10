@@ -1,0 +1,74 @@
+# -*- yaml -*-
+---
+- name: include the variables
+  include_vars: "{{vm_config_dir}}/{{cluster_name}}.yml"
+
+# create LV
+- name: create root logical volumes
+  lvol: vg=vmvg lv={{item.name}}_root size={{item.root_disk_size}}
+  with_items: active_vm
+  register: lvol_create
+
+# those need to be present for the create-md step below
+- name: create DRBD resource config
+  template: src=drbd-vm.res.j2 dest=/etc/drbd.d/{{item.name}}.res
+    owner=root group=root mode=0444 backup=yes
+  with_items: active_vm
+
+# fail early, fail often...
+- name: check drbd config
+  command: /sbin/drbdadm sh-nop
+
+# the lvol module can try and resize to the same size, and fail...
+- name: create additional logical volumes
+  lvol: vg=vmvg lv={{item.0.name}}_{{item.1.name}} size={{item.1.size}}
+  with_subelements:
+    - active_vm # item.0
+    - more_disks     # item.1
+  register: more_disks_create
+  ignore_errors: true
+
+#- debug: var=more_disks_create
+  
+- name: initialize LVs for DRBD
+  shell: /sbin/drbdadm create-md {{item.item.name}} < /dev/null
+  with_items: lvol_create.results
+  when: item.changed
+
+  # this needs to be run when more_disks are added later, but not when created
+  # initially as part of the DRBD resource...
+# - name: initialize more_disks DRBD metadata
+#   shell: /sbin/drbdmeta {{item.item.1.drbd_minor}} v08 /dev/vmvg/{{item.item.0.name}}_{{item.item.1.name}} internal create-md < /dev/null
+#   with_items: more_disks_create.results
+#   when: more_disks_create.changed and item.changed
+  
+# need this before the initial sync...
+- name: drbdadm adjust all, for good measure
+  command: /sbin/drbdadm adjust all
+  
+- name: initial sync on DRBD resources
+  shell: /sbin/drbdadm primary --force {{item.item.name}} < /dev/null
+  with_items: lvol_create.results
+  when: item.changed and item.item.primary_on == inventory_hostname
+
+# - name: initial sync on DRBD more_disk resources
+#   shell: /sbin/drbdadm primary --force {{item.item.name}} < /dev/null
+#   with_items: more_disks_create.results
+#   when: more_disks_create.changed and item.changed and item.item.primary_on == inventory_hostname
+
+# create VM service
+- name: disable outdated service files
+  command: /bin/systemctl disable {{item.name}}.service
+  with_items: disabled_vm
+
+- name: create VM service files
+  template: src=vm-service.j2
+    dest=/etc/systemd/system/vm-{{item.name}}.service
+    owner=root group=root mode=0444
+  with_items: active_vm
+  notify: systemctl daemon-reload
+
+- name: enable VM service files
+  command: /bin/systemctl reenable vm-{{item.name}}.service
+  with_items: active_vm
+

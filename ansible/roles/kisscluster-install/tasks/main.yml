@@ -1,0 +1,12 @@
+- include: sysconfig.yml
+
+- include: packages.yml
+
+- include: drbd.yml
+
+- include: kisscluster.yml
+
+- include: systemd.yml
+
+- include: qemu.yml
+  
