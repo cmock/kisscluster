@@ -12,7 +12,7 @@
 
 - name: install sudoers file for kissclusterd
   template: src=sudoers.j2 dest=/etc/sudoers.d/kissclusterd
-    owner=root group=root mode=0440 validate=visudo -c -f %s
+    owner=root group=root mode=0440 validate="visudo -c -f %s"
 
 - name: install kissclusterd.conf
   template: src=kissclusterd.conf.j2 dest=/etc/kissclusterd.conf

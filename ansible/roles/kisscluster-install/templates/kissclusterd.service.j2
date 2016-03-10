@@ -2,7 +2,8 @@
 
 [Unit]
 Description= KISS cluster manager daemon
-Requires=drbd.service network-online.target
+Requires=network-online.target
+Wants=drbd.service
 After=drbd.service network-online.target
 StopWhenUnneeded=false
 

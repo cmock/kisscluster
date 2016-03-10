@@ -4,6 +4,10 @@
   template: src=interfaces.j2 dest=/etc/network/interfaces
     owner=root group=root mode=0444 backup=yes
 
+# this needs to be the same everywhere or e.g. DRBD will not load resources
+- name: set hostname
+  hostname: name={{inventory_hostname}}
+    
 - name: autoload kvm module
   lineinfile: dest=/etc/modules line='kvm'
     

@@ -1,5 +1,12 @@
 # -*- yaml -*-
 ---
+
+# this is ugly, but how to find it for roles included from role_path?
+- name: run the inventory helper
+  command: "{{_original_file|regex_replace('/[^/]+/[^/]+$', '')}}/helpers/kisscluster-vm-inventory {{vm_config_dir}}/{{cluster_name}}"
+#  debug: msg="{{_original_file|regex_replace('/[^/]+/[^/]+$', '')}}/helpers/kisscluster-vm-inventory {{vm_config_dir}}"
+  delegate_to: localhost
+
 - name: include the variables
   include_vars: "{{vm_config_dir}}/{{cluster_name}}.yml"
 

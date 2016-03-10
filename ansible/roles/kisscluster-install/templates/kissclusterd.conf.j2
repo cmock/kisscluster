@@ -2,7 +2,11 @@
 
 # IP addresses of both nodes (separated by whitespace)
 stor_addrs = {% for member in cluster_members %}{{member.stor_addr}} {% endfor %}
+{# this next empty line is needed to produce a line break #}
+
 prod_addrs = {% for member in cluster_members %}{{member.prod_addr}} {% endfor %}
+{# this next empty line is needed to produce a line break #}
+
 # IP address of switch, or whatever the third player is.
 # needs to respond to ICMP pings
 ping_addr = {{ping_addr}}
@@ -11,7 +15,7 @@ ping_timeout = 1
 # which UDP port to use for the keepalive protocol
 keepalive_port = 5324
 # secret for the network protocol
-keepalive_secret = "{{lookup('password', 'vm-config/' + clustername + '.secret' length=16) }}"
+keepalive_secret = "{{lookup('password', 'vm-config/' + cluster_name + '.secret', length=16) }}"
 
 # priorities for the keepalive protocol
 base_priority = 100
@@ -30,3 +34,4 @@ syslog_facility = LOG_DAEMON
 # some system dependencies; full path, please!
 iproute = /sbin/ip
 fping = /usr/bin/fping
+systemctl = /usr/bin/sudo /bin/systemctl
