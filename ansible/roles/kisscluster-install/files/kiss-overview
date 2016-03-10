@@ -1,0 +1,50 @@
+#!/usr/bin/perl -w
+use strict;
+use IPC::System::Simple qw(systemx capturex runx EXIT_ANY);
+
+my $systemctl = '/bin/systemctl';
+my $drbdoverview = '/usr/sbin/drbd-overview';
+
+# daemon status
+check_systemd('kissclusterd.service');
+
+# target status
+my @targets = qw(all-vms.target primary-vms.target no-vms.target);
+my $num = 0;
+my @active;
+for my $t (@targets) {
+  if(!runx(EXIT_ANY, $systemctl, '-q', 'is-active', $t)) {
+    push(@active, $t);
+    $num++;
+  }
+}
+if($num == 0) {
+  print "PROBLEM: Active target: no target is active\n";
+} elsif($num == 1) {
+  print "OK: Active target: $active[0]\n";
+} else {
+  print "PROBLEM: MULTIPLE $num Active targets: " . join(" ", @active) . "\n";
+}
+
+# running VMs
+print "\nVM status:\n";
+runx($systemctl, '--type=service', '--all', '--no-legend',
+     'list-units', 'vm-*');
+print "\n";
+
+# drbd-overview
+print "DRBD status:\n";
+runx($drbdoverview);
+
+sub check_systemd {
+  my $unit = shift;
+
+  my $rc = runx(EXIT_ANY, $systemctl, '-q', 'is-active', $unit);
+  if($rc) {
+    print "PROBLEM: $unit\n";
+    runx(EXIT_ANY, $systemctl, 'status', $unit);
+    print "\n";
+  } else {
+    print "OK: $unit is running\n";
+  }
+}

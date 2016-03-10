@@ -11,7 +11,10 @@
     - socat
     - iproute2
     - fping
+    - perl
     - libconfig-tiny-perl
+    - libipc-system-simple-perl
+    - libdigest-sha-perl
     - sudo
 
 - name: remove some stuff
@@ -26,8 +29,13 @@
 - name: install vm-monitor helper
   copy: src=vm-monitor dest=/usr/sbin/vm-monitor
     owner=root group=root mode=0555
+
+- name: install kiss-overview
+  copy: src=kiss-overview dest=/usr/sbin/kiss-overview
+    owner=root group=root mode=0555
     
 - name: install nuke script
-  copy: src=nuke-vm.sh dest=/usr/local/sbin/nuke-vm.sh
+  copy: src=nuke-vm.sh dest=/usr/sbin/nuke-vm.sh
     owner=root group=root mode=0550
+
     

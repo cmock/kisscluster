@@ -1,13 +1,6 @@
 # -*- yaml -*-
 # create VMs on kissclusters
 ---
-## first, generate the configs
-#- hosts: cluster1
-#  tasks:
-#  - command: roles/kisscluster-vms/helpers/kisscluster-vm-inventory vm-config/{{ cluster_name }}
-#    delegate_to: localhost
-
-## and then deploy them    
 - hosts: cluster1
   roles:
     - role: kisscluster-vms
