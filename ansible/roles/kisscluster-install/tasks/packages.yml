@@ -17,6 +17,8 @@
     - libdigest-sha-perl
     - sudo
     - git
+    - rsync
+    - ansible
 
 - name: remove some stuff
   apt: pkg={{item}} state=absent purge=yes

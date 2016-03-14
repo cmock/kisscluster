@@ -1,7 +1,9 @@
+# {{ ansible_managed }}
 # -*- yaml -*-
-# create VMs on kissclusters
 ---
-- hosts: cluster1
+- hosts: all
   roles:
     - role: kisscluster-vms
       vm_config_dir: "{{playbook_dir}}/vm-config"
+
+# {{ ansible_managed }}

@@ -1,0 +1,4 @@
+[{{ cluster_name }}]
+{% for node in cluster_members %}
+{{ node.name }}
+{% endfor %}

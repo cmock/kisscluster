@@ -1,0 +1,25 @@
+# -*- yaml -*-
+# installation of the kiss-configure stuff
+---
+- name: install ansible config files
+  template: src={{item}}.j2 dest=/srv/kiss-configure/{{item}}
+    owner=root group=adm mode=0660
+  with_items:
+    - ansible.cfg
+    - ansible-hosts
+    - kiss-configure.yml
+
+- name: mkdir
+  file: dest=/srv/kiss-configure/{{item}} state=directory
+    owner=root group=adm mode=0775
+  with_items:
+    - group_vars
+    - vm-config
+    - vm-config/{{cluster_name}}
+
+- name: copy initial group_vars for cluster
+  copy: src=group_vars/{{cluster_name}}.yml
+    dest=/srv/kiss-configure/group_vars/{{cluster_name}}.yml
+    owner=root group=adm mode=0660
+
+    
