@@ -2,7 +2,10 @@
 # installation of the kiss-configure stuff
 ---
 - name: initialize git repo
-  command: git init --bare /srv/kiss-configure.git
+  command: git init --bare --shared=group /srv/kiss-configure.git
+
+# we need a hook to remove the EDITMSG, bug in jessie git:
+# http://lists-archives.com/git/855117-git-leaves-behind-git-commit_editmsg-non-shared-in-shared-non-bare-repo.html
 
 - name: set owner/group on repo
   file: path=/srv/kiss-configure.git recurse=true
@@ -23,3 +26,11 @@
   args:
     chdir: /srv/kiss-configure
 
+- name: set sharedrepository
+  command: git config core.sharedrepository 1
+  args:
+    chdir: /srv/kiss-configure
+
+- name: install post-commit hook (COMMIT_EDITMSG permission workaround)
+  copy: src=post-commit.githook dest=/srv/kiss-configure/.git/hooks/post-commit
+    owner=root group=adm mode=0775
