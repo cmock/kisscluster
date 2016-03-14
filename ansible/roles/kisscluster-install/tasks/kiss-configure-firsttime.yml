@@ -1,0 +1,25 @@
+# -*- yaml -*-
+# installation of the kiss-configure stuff
+---
+- name: initialize git repo
+  command: git init --bare /srv/kiss-configure.git
+
+- name: set owner/group on repo
+  file: path=/srv/kiss-configure.git recurse=true
+    owner=ansible group=adm
+
+- name: checkout working copy
+  command: git clone /srv/kiss-configure.git
+  args:
+    chdir: /srv
+
+- name: add first remote
+  command: git remote add cluster ssh://ansible@{{cluster_members.0.name}}/srv/kiss-configure.git
+  args:
+    chdir: /srv/kiss-configure
+    
+- name: add second remote
+  command: git remote set-url cluster --add ssh://ansible@{{cluster_members.1.name}}/srv/kiss-configure.git
+  args:
+    chdir: /srv/kiss-configure
+

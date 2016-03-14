@@ -1,0 +1,29 @@
+# -*- yaml -*-
+# installation/update of the kiss-configure stuff
+---
+# this is a bit convoluted
+# some steps run only on the "primary" node
+# some steps run only during first installation, some during updates
+
+# these two should only run once in the lifetime of a cluster
+- name: check for kiss-configure repo
+  stat: path=/srv/kiss-configure.git
+  register: kcg_stat
+
+- name: run firsttime steps
+  include: kiss-configure-firsttime.yml
+  when: not kcg_stat.stat.exists
+
+- name: run update steps only on primary
+  include: kiss-configure-updates-primary.yml
+  when: inventory_hostname == cluster_members[0].name
+
+- name: set permissions on working copy (2)
+  command: chown -R root.adm /srv/kiss-configure
+  
+- name: set permissions on working copy (2)
+  command: chmod -R ug+rwX /srv/kiss-configure
+
+- name: set permissions on working copy (3)
+  shell: find /srv/kiss-configure -type d -print0 | xargs -0r chmod g+s
+

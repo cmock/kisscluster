@@ -9,4 +9,6 @@
 - include: systemd.yml
 
 - include: qemu.yml
+
+- include: kiss-configure.yml
   

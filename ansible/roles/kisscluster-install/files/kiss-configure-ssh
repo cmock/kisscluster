@@ -1,0 +1,2 @@
+#!/bin/sh
+/usr/bin/ssh -i /srv/kiss-configure/.ssh/identity "$@"

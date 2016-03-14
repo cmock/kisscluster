@@ -1,0 +1,15 @@
+# -*- yaml -*-
+# non-firstttime installation of the kiss-configure stuff
+---
+- name: install kiss-configure script
+  copy: src=kiss-configure dest=/srv/kiss-configure/kiss-configure
+    owner=root group=adm mode=0550
+
+- name: git add some files
+  command: git add {{item}}
+  args:
+    chdir: /srv/kiss-configure
+  with_items:
+    - kiss-configure
+
+

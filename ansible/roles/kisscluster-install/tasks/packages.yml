@@ -16,6 +16,7 @@
     - libipc-system-simple-perl
     - libdigest-sha-perl
     - sudo
+    - git
 
 - name: remove some stuff
   apt: pkg={{item}} state=absent purge=yes
@@ -26,16 +27,11 @@
     - avahi-daemon
     - network-manager
 
-- name: install vm-monitor helper
-  copy: src=vm-monitor dest=/usr/sbin/vm-monitor
+- name: install helpers
+  copy: src={{item}} dest=/usr/sbin/{{item}}
     owner=root group=root mode=0555
-
-- name: install kiss-overview
-  copy: src=kiss-overview dest=/usr/sbin/kiss-overview
-    owner=root group=root mode=0555
-    
-- name: install nuke script
-  copy: src=nuke-vm.sh dest=/usr/sbin/nuke-vm.sh
-    owner=root group=root mode=0550
-
-    
+  with_items:
+    - vm-monitor
+    - kiss-overview
+    - nuke-vm
+    - kiss-configure-ssh
