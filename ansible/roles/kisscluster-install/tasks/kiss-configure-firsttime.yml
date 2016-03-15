@@ -13,15 +13,27 @@
   args:
     chdir: /srv
 
-- name: add first remote
+- name: set first node as origin
   command: git remote set-url origin ssh://ansible@{{cluster_members.0.name}}/srv/kiss-configure.git
   args:
     chdir: /srv/kiss-configure
-    
-- name: add second remote
-  command: git remote set-url origin --add ssh://ansible@{{cluster_members.1.name}}/srv/kiss-configure.git
+
+- name: add second node as origin
+  command: git remote set-url --add origin ssh://ansible@{{cluster_members.1.name}}/srv/kiss-configure.git
   args:
     chdir: /srv/kiss-configure
+    
+- name: add remotes as origin (push)
+  command: git remote set-url --add --push origin ssh://ansible@{{item.name}}/srv/kiss-configure.git
+  args:
+    chdir: /srv/kiss-configure
+  with_items: cluster_members
+
+- name: add remotes by name
+  command: git remote add {{item.name}} ssh://ansible@{{item.name}}/srv/kiss-configure.git
+  args:
+    chdir: /srv/kiss-configure
+  with_items: cluster_members
 
 - name: set sharedrepository
   command: git config core.sharedrepository 1
