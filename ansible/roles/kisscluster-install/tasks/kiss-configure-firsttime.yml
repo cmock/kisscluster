@@ -4,8 +4,6 @@
 - name: initialize git repo
   command: git init --bare --shared=group /srv/kiss-configure.git
 
-# we need a hook to remove the EDITMSG, bug in jessie git:
-# http://lists-archives.com/git/855117-git-leaves-behind-git-commit_editmsg-non-shared-in-shared-non-bare-repo.html
 
 - name: set owner/group on repo
   file: path=/srv/kiss-configure.git recurse=true
@@ -17,12 +15,12 @@
     chdir: /srv
 
 - name: add first remote
-  command: git remote add cluster ssh://ansible@{{cluster_members.0.name}}/srv/kiss-configure.git
+  command: git remote set-url origin ssh://ansible@{{cluster_members.0.name}}/srv/kiss-configure.git
   args:
     chdir: /srv/kiss-configure
     
 - name: add second remote
-  command: git remote set-url cluster --add ssh://ansible@{{cluster_members.1.name}}/srv/kiss-configure.git
+  command: git remote set-url origin --add ssh://ansible@{{cluster_members.1.name}}/srv/kiss-configure.git
   args:
     chdir: /srv/kiss-configure
 
@@ -31,6 +29,8 @@
   args:
     chdir: /srv/kiss-configure
 
+# we need a hook to remove the EDITMSG, bug in jessie git:
+# http://lists-archives.com/git/855117-git-leaves-behind-git-commit_editmsg-non-shared-in-shared-non-bare-repo.html
 - name: install post-commit hook (COMMIT_EDITMSG permission workaround)
   copy: src=post-commit.githook dest=/srv/kiss-configure/.git/hooks/post-commit
     owner=root group=adm mode=0775
