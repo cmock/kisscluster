@@ -1,5 +1,9 @@
 # -*- yaml -*-
 # installation of the kiss-configure stuff
+#
+# first time steps to run on primary only
+# mostly filling stuff into the working dir
+# so afterwards there's one location that can be pushed to the repo
 ---
 - name: install ansible config files
   template: src={{item}}.j2 dest=/srv/kiss-configure/{{item}}

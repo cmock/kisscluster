@@ -18,11 +18,12 @@
   include: kiss-configure-firsttime-primary.yml
   when: not kcg_stat.stat.exists and inventory_hostname == cluster_members[0].name
 
+# the following steps should run at every update
 - name: run update steps only on primary
   include: kiss-configure-updates-primary.yml
   when: inventory_hostname == cluster_members[0].name
 
-- name: set permissions on working copy (2)
+- name: set permissions on working copy (1)
   command: chown -R root.adm /srv/kiss-configure
   
 - name: set permissions on working copy (2)

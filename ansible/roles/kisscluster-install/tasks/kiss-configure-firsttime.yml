@@ -4,7 +4,6 @@
 - name: initialize git repo
   command: git init --bare --shared=group /srv/kiss-configure.git
 
-
 - name: set owner/group on repo
   file: path=/srv/kiss-configure.git recurse=true
     owner=ansible group=adm
