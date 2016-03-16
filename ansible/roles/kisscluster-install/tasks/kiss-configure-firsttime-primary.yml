@@ -11,15 +11,13 @@
   with_items:
     - ansible.cfg
     - ansible-hosts
-    - kiss-configure.yml
 
 - name: mkdir
   file: dest=/srv/kiss-configure/{{item}} state=directory
     owner=root group=adm mode=0775
   with_items:
-    - group_vars
-    - vm-config
     - vm-config/{{cluster_name}}
+    - group_vars
 
 - name: copy initial group_vars for cluster
   copy: src=group_vars/{{cluster_name}}.yml

@@ -1,29 +1,13 @@
 # -*- yaml -*-
 # non-firstttime installation of the kiss-configure stuff
 ---
-- name: install kiss-configure script
-  copy: src=kiss-configure dest=/srv/kiss-configure/kiss-configure
-    owner=root group=adm mode=0550
-
-- name: install ansible files from templates
-  template: src={{item}}.j2 dest=/srv/kiss-configure/{{item}}
-    owner=root group=adm mode=0660
-  with_items:
-    - kiss-configure.yml
-
 # this is ugly, but how to find it for roles included from role_path?
-- name: install kisscluster-vms role
-  synchronize: src="{{_original_file|regex_replace('/[^/]+/[^/]+/[^/]+$', '/kisscluster-vms')}}"
-    dest=/srv/kiss-configure/roles/ delete=true 
+- name: copy kiss-configure directory
+  synchronize: src="{{source_dir}}/node/"
+    dest=/srv/kiss-configure/ delete=false
 
-- name: install EXAMPLE.YML
-  copy: src="{{_original_file|regex_replace('/[^/]+/[^/]+/[^/]+/[^/]+$',
-    '/vm-config/EXAMPLE.YML')}}"
-    dest=/srv/kiss-configure/vm-config/EXAMPLE.YML
-    owner=root group=adm mode=0664
-    
 - name: fix permissions on roles
-  command: chmod -R ug=rX,o= /srv/kiss-configure/roles
+  command: chmod -R ug=rX,o= /srv/kiss-configure
     
 - name: git add some files
   command: git add {{item}}
