@@ -2,7 +2,10 @@
 use strict;
 use IPC::System::Simple qw(system systemx capture capturex);
 use Cwd qw(realpath);
+use YAML qw(LoadFile);
 use autodie qw(open close chdir);
+use Sys::Hostname;
+use Getopt::Long;
 
 my $git = '/usr/bin/git';
 my $playbook = '/usr/bin/ansible-playbook';
@@ -11,6 +14,15 @@ my $playbook = '/usr/bin/ansible-playbook';
 my $kcdir = realpath($0);
 $kcdir =~ s#/[^/]+$##;
 chdir($kcdir);
+
+my $force = 0;
+GetOptions('force' => \$force);
+
+# check if we're running on the primary node
+if(!$force && !primary()) {
+  die("Not running on primary node!\n\n".
+       "Please use '--force' if you're sure you know what you're doing.\n\n");
+}
 
 # add critical stuff
 systemx($git, 'add', 'vm-config');
@@ -50,3 +62,13 @@ systemx($git, 'push', 'origin',  'master');
 
 
 
+
+sub primary {
+  for my $fn (glob("group_vars/*.yml")) {
+    my $y = LoadFile($fn) || die "loading YAML $fn: $!\n";
+    if($y->{cluster_members}->[0]->{name} eq hostname()) {
+      return 1;
+    }
+  }
+  return 0;
+}
