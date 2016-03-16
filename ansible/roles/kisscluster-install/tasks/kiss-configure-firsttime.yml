@@ -29,11 +29,11 @@
     chdir: /srv/kiss-configure
   with_items: cluster_members
 
-- name: add remotes by name
-  command: git remote add {{item.name}} ssh://ansible@{{item.name}}/srv/kiss-configure.git
+- name: add remotes separately
+  command: git remote add node{{item.0}} ssh://ansible@{{item.1.name}}/srv/kiss-configure.git
   args:
     chdir: /srv/kiss-configure
-  with_items: cluster_members
+  with_indexed_items: "{{cluster_members}}"
 
 - name: set sharedrepository
   command: git config core.sharedrepository 1

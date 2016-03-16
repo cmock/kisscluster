@@ -1,3 +1,46 @@
-#!/bin/sh
+#!/usr/bin/perl -w
+use strict;
+use IPC::System::Simple qw(system systemx capture capturex);
+use Cwd qw(realpath);
+use autodie qw(open close chdir);
 
-echo "nothing to see here at the moment."
+my $git = '/usr/bin/git';
+my $playbook = '/usr/bin/ansible-playbook';
+
+# chdir, in case we're called from elsewhere...
+my $kcdir = realpath($0);
+$kcdir =~ s#/[^/]+$##;
+chdir($kcdir);
+
+# commit first. user will have edited stuff if they run this.
+systemx($git, 'commit', '--allow-empty', '-am',
+	'automatic commit starting kiss-configure');
+
+# fetch the HEAD hashes from both repos.
+systemx($git, 'fetch', '--all');
+my($commit, $H);
+
+open($H, "<", ".git/FETCH_HEAD");
+while(<$H>) {
+  /^([\da-f]+)\s+/ || die "bad line in FETCH_HEAD:$.\n";
+  if(defined $commit && $1 ne $commit) {
+    die "Not all repos have the same HEAD commit, fix manually!\n";
+  } else {
+    $commit = $1;
+  }
+}
+
+# git merge
+systemx($git, 'merge');
+
+# dinge machen
+systemx($playbook, 'kiss-configure.yml');
+
+# git commit
+systemx($git, 'commit', '--allow-empty', '-am',
+	'automatic commit ending kiss-configure');
+# git push origin master (pusht auf beide, soweit online)
+systemx($git, 'push', 'origin',  'master');
+
+
+

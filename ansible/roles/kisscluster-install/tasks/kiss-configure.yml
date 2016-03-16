@@ -32,3 +32,6 @@
 - name: set permissions on working copy (3)
   shell: find /srv/kiss-configure -type d -print0 | xargs -0r chmod g+s
 
+- name: install sudoers file for adm group
+  template: src=sudoers-adm.j2 dest=/etc/sudoers.d/adm
+    owner=root group=root mode=0440 validate="visudo -c -f %s"

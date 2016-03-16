@@ -15,6 +15,7 @@
     - libconfig-tiny-perl
     - libipc-system-simple-perl
     - libdigest-sha-perl
+    - libyaml-perl
     - sudo
     - git
     - rsync

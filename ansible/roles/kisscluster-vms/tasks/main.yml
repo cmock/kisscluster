@@ -35,12 +35,12 @@
   register: more_disks_create
   ignore_errors: true
 
-#- debug: var=more_disks_create
+#- debug: var=lvol_create
   
 - name: initialize LVs for DRBD
   shell: /sbin/drbdadm create-md {{item.item.name}} < /dev/null
   with_items: lvol_create.results
-  when: item.changed
+  when: lvol_create.changed and item.changed
 
   # this needs to be run when more_disks are added later, but not when created
   # initially as part of the DRBD resource...
@@ -56,7 +56,7 @@
 - name: initial sync on DRBD resources
   shell: /sbin/drbdadm primary --force {{item.item.name}} < /dev/null
   with_items: lvol_create.results
-  when: item.changed and item.item.primary_on == inventory_hostname
+  when: lvol_create.changed and item.changed and item.item.primary_on == inventory_hostname
 
 # - name: initial sync on DRBD more_disk resources
 #   shell: /sbin/drbdadm primary --force {{item.item.name}} < /dev/null
