@@ -16,6 +16,12 @@
   synchronize: src="{{_original_file|regex_replace('/[^/]+/[^/]+/[^/]+$', '/kisscluster-vms')}}"
     dest=/srv/kiss-configure/roles/ delete=true 
 
+- name: install EXAMPLE.YML
+  copy: src="{{_original_file|regex_replace('/[^/]+/[^/]+/[^/]+/[^/]+$',
+    '/vm-config/EXAMPLE.YML')}}"
+    dest=/srv/kiss-configure/vm-config/EXAMPLE.YML
+    owner=root group=adm mode=0664
+    
 - name: fix permissions on roles
   command: chmod -R ug=rX,o= /srv/kiss-configure/roles
     

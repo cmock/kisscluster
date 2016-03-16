@@ -12,6 +12,9 @@ my $kcdir = realpath($0);
 $kcdir =~ s#/[^/]+$##;
 chdir($kcdir);
 
+# add critical stuff
+systemx($git, 'add', 'vm-config');
+
 # commit first. user will have edited stuff if they run this.
 systemx($git, 'commit', '--allow-empty', '-am',
 	'automatic commit starting kiss-configure');
