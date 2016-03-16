@@ -51,7 +51,7 @@ systemx($git, 'merge');
 # dinge machen
 systemx($playbook, 'kiss-configure.yml');
 
-# add critical stuff once more (vm-config/cluster.yml could have appearedd)
+# add critical stuff once more (vm-config/cluster.yml could have appeared)
 systemx($git, 'add', 'vm-config');
 
 # git commit

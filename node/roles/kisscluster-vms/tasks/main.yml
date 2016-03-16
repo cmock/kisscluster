@@ -6,6 +6,7 @@
   command: "{{_original_file|regex_replace('/[^/]+/[^/]+$', '')}}/helpers/kisscluster-vm-inventory {{vm_config_dir}}/{{cluster_name}}"
 #  debug: msg="{{_original_file|regex_replace('/[^/]+/[^/]+$', '')}}/helpers/kisscluster-vm-inventory {{vm_config_dir}}"
   delegate_to: localhost
+  sudo: false
 
 - name: include the variables
   include_vars: "{{vm_config_dir}}/{{cluster_name}}.yml"
@@ -57,11 +58,6 @@
   shell: /sbin/drbdadm primary --force {{item.item.name}} < /dev/null
   with_items: lvol_create.results
   when: lvol_create.changed and item.changed and item.item.primary_on == inventory_hostname
-
-# - name: initial sync on DRBD more_disk resources
-#   shell: /sbin/drbdadm primary --force {{item.item.name}} < /dev/null
-#   with_items: more_disks_create.results
-#   when: more_disks_create.changed and item.changed and item.item.primary_on == inventory_hostname
 
 # create VM service
 - name: disable outdated service files

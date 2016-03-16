@@ -4,6 +4,7 @@
   apt: pkg={{item}} state=present install_recommends=no
   with_items:
     - bridge-utils
+    - vlan
     - ntp
     - lvm2
     - drbd-utils

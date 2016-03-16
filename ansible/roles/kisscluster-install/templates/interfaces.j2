@@ -21,4 +21,10 @@ iface br0 inet static
 {% endif %}
 {% endfor %}
 
+## example for VLAN configuration, assuming {{prod_if}} is a trunk port
+## VLAN123
+# auto br123
+# iface br123 inet manual
+#  bridge_ports {{prod_if}}.123
+
 # {{ ansible_managed }}
