@@ -35,3 +35,7 @@
 - name: install sudoers file for adm group
   template: src=sudoers-adm.j2 dest=/etc/sudoers.d/adm
     owner=root group=root mode=0440 validate="visudo -c -f %s"
+
+- name: make /etc/vm directory
+  file: dest=/etc/vm state=directory owner=root group=adm mode=0770
+  

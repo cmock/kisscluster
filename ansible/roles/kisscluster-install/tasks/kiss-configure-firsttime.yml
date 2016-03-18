@@ -33,7 +33,7 @@
   command: git remote add node{{item.0}} ssh://ansible@{{item.1.name}}/srv/kiss-configure.git
   args:
     chdir: /srv/kiss-configure
-  with_indexed_items: "{{cluster_members}}"
+  with_indexed_items: cluster_members
 
 - name: set sharedrepository
   command: git config core.sharedrepository 1

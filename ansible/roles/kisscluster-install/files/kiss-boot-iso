@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# boot a VM from an ISO image one time
+VM=$1
+ISO=$2
+
+USAGE="usage: $0 vm-name iso-file"
+
+if [ ! -e "$ISO" ]; then
+    echo "Cannot find ISO image $ISO."
+    echo $USAGE
+    exit 2
+fi
+
+if /bin/systemctl is-active -q vm@$VM.service; then
+    echo "VM $VM is running. Please stop and retry."
+    echo $USAGE
+    exit 1
+fi
+
+
+
+cat > /run/kvm/$VM.conf <<EOF
+TMP_QEMU_PARAMS=-cdrom $ISO -boot d
+EOF
+
+/bin/systemctl start vm@$VM.service

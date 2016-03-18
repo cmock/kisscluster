@@ -6,6 +6,7 @@
   command: "{{_original_file|regex_replace('/[^/]+/[^/]+$', '')}}/helpers/kisscluster-vm-inventory {{vm_config_dir}}/{{cluster_name}}"
 #  debug: msg="{{_original_file|regex_replace('/[^/]+/[^/]+$', '')}}/helpers/kisscluster-vm-inventory {{vm_config_dir}}"
   delegate_to: localhost
+  run_once: true
   sudo: false
 
 - name: include the variables
@@ -61,17 +62,29 @@
 
 # create VM service
 - name: disable outdated service files
-  command: /bin/systemctl disable {{item.name}}.service
+  command: /bin/systemctl disable vm@{{item.name}}.service
   with_items: disabled_vm
 
-- name: create VM service files
-  template: src=vm-service.j2
-    dest=/etc/systemd/system/vm-{{item.name}}.service
-    owner=root group=root mode=0444
+- name: create VM config
+  template: src=vm.conf.j2 dest=/etc/vm/{{item.name}}.conf
+    owner=root group=adm mode=0440 backup=yes
   with_items: active_vm
-  notify: systemctl daemon-reload
-
+  
 - name: enable VM service files
-  command: /bin/systemctl reenable vm-{{item.name}}.service
+  command: /bin/systemctl reenable vm@{{item.name}}.service
   with_items: active_vm
 
+- name: mkdir primary-vms.target.wants
+  file: dest=/etc/systemd/system/primary-vms.target.wants
+    state=directory owner=root group=root mode=0755
+  
+- name: setup primary-vms
+  file: src=/etc/systemd/system/vm@.service
+    dest=/etc/systemd/system/primary-vms.target.wants/vm@{{item.name}}.service
+    state=link
+  with_items: active_vm
+  when: item.primary_on == inventory_hostname
+
+- name: systemctl daemon-reload
+  command: /bin/systemctl daemon-reload
+  

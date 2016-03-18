@@ -1,0 +1,126 @@
+#!/usr/bin/perl -w
+use strict;
+use IO::Socket::UNIX;
+use Config::Tiny;
+use IPC::System::Simple qw(systemx capturex runx EXIT_ANY);
+use Net::OpenSSH;
+
+my $usage = "usage: $0 [--all] | vm-name
+  Migrates a VM away from this host, or all when --all is given.
+";
+
+my $iproute = '/sbin/ip';
+my $ssh = '/usr/bin/ssh';
+my $systemctl = '/bin/systemctl';
+my $drbdadm = '/sbin/drbdadm';
+my $kisscluster_conf = '/etc/kissclusterd.conf';
+
+# check for access to other host
+my $other = get_other_ipaddr;
+
+my $ssh = Net::OpenSSH->new($other);
+$ssh->error and die "ssh problem: " . $ssh->error;
+
+while(my $opt = shift) {
+  print "Option: <$opt>\n";
+  if($opt eq '--all') {
+    # XXX find all
+  } else {
+    migrate($opt);
+  }
+}
+
+sub migrate {
+  my $vm = shift;
+
+  # is it even running?
+  my $exitval = runx([0,3], $systemctl, '-q', 'is-active', "vm\@$vm.service");
+  if($exitval == 3) {
+    print "VM $vm is not currently running.\n";
+    return undef;
+  } elsif($exitval != 0) {
+    print "VM $vm: problem with systemctl is-active? RC=$exitval\n";
+    return undef;
+  }
+
+  # drbdadm net-options --protocol=C --allow-two-primaries <resource>
+  unless(on_both($drbdadm, 'net-options', '--protocol=C',
+		 '--allow-two-primaries', $vm)) {
+    return undef;
+  }
+
+  # drbdadm primary auf beiden
+  unless(on_both($drbdadm, 'primary', $vm)) {
+    return undef;
+  }
+
+  # start on B with added params:
+  # -incoming tcp:0:port
+  # create /run/kvm/$vm.conf on other...
+  unless(ssh_system({stdin_data => "TMP_QEMU_PARAMS=-incoming tcp:$other:1234"},
+		    "cat > /run/kvm/$vm.conf")) {
+    # XXX cleanup
+    print "VM $vm: cannot create /run/kvm/$vm.conf on other\n";
+    return undef;
+  }
+  ssh_system($systemctl, 'start', "vm\@$vm.service");
+
+# in monitor:
+
+# migrate -d tcp:remote-addr:port
+
+# status:
+
+# info migrate
+
+# zum schluß
+
+
+# drbdadm net-options --protocol=C <resource>
+
+
+# return a hash keyed by all local ip addresses
+sub get_other_ipaddr {
+  my @res = qx|$iproute addr show|;
+  my %addrs;
+
+  foreach (@res) {
+    /^\s+inet ([\d\.]+)\/\d+/ || next;
+    $addrs{$1}++;
+  }
+
+  my $cfg = Config::Tiny->read() ||
+    die "open $kisscluster_conf: $!\n";
+  my @addrs = split(/\s+/, $cfg->{_}->{stor_addrs});
+  my @oaddrs;
+  for (my @addrs) {
+    push(@oaddrs, $_) unless exists $addrs{$_};
+  }
+  if(scalar(@oaddrs) != 1) {
+    die "could not find other's stor_addr from $kisscluster_conf\n";
+  }
+  @oaddrs[0];
+}
+
+sub ssh_system {
+  my $ex = $ssh->system(@_);
+  unless($ex) {
+    print "ssh: $ssh->error\n";
+  }
+  $ex;
+}
+
+sub on_both {
+  my $exitval = runx(EXIT_ANY, @_);
+  if($exitval) {
+    print "VM $vm: problem with command on localhost.\n";
+    print "Command: ", join(" ", @_), "\n";
+    return undef;
+  }
+  unless(ssh_system(@_)) {
+    print "VM $vm: problem with command on other.\n";
+    print "Command: ", join(" ", @_), "\n";
+    return undef;
+  }
+  return 1;
+}

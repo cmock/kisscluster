@@ -29,7 +29,7 @@ if($num == 0) {
 # running VMs
 print "\nVM status:\n";
 runx($systemctl, '--type=service', '--all', '--no-legend',
-     'list-units', 'vm-*');
+     'list-units', 'vm@*');
 print "\n";
 
 # drbd-overview

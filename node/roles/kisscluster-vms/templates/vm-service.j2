@@ -7,7 +7,8 @@ After=drbd-resource@{{item.name}}.service
 StopWhenUnneeded=true
 
 [Service]
-ExecStartPre=/bin/mkdir -p /run/kvm
+User=kvm
+Group=kvm
 ExecStart=/usr/bin/qemu-system-x86_64 -enable-kvm -name {{item.name}} \
   -monitor unix:/run/kvm/{{item.name}}.mon,server,nowait \
   -serial unix:/run/kvm/{{item.name}}.serial,server,nowait \
@@ -22,6 +23,7 @@ ExecStart=/usr/bin/qemu-system-x86_64 -enable-kvm -name {{item.name}} \
   
 ExecStop=/usr/sbin/vm-monitor {{item.name}} powerdown
 TimeoutStopSec=60
+KillMode=control-group
 Restart=on-failure
 # qemu exit codes:
 # poweroff -> 0

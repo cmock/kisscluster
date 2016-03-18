@@ -10,4 +10,9 @@
     
 - name: autoload kvm module
   lineinfile: dest=/etc/modules line='kvm'
+
+# group disks for access to DRBD devices
+- name: create "kvm" user
+  user: name=kvm comment="kvm virtualisation user" group=kvm
+    groups=disk home=/run/kvm system=yes state=present
     

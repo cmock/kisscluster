@@ -4,15 +4,19 @@
   template: src={{item}}.j2 dest=/etc/systemd/system/{{item}}
     owner=root group=root mode=0444
   with_items:
-    - drbd-resource@.service
     - no-vms.target
     - primary-vms.target
     - all-vms.target
+    - vm@.service
+    - drbd-resource@.service
 
+- name: install tmpfiles.d for /run/kvm
+  template: src=run_kvm_tmpfiles.j2 dest=/etc/tmpfiles.d/run_kvm.conf
+    owner=root group=root mode=0444
+    
 - name: enable unit files
   command: /bin/systemctl enable {{item}}
   with_items:
-    - drbd-resource@.service
     - no-vms.target
     - primary-vms.target
     - all-vms.target

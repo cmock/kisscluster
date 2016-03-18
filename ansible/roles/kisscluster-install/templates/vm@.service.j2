@@ -1,0 +1,42 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description= VM %i
+Requires=drbd-resource@%i.service
+After=drbd-resource@%i.service
+StopWhenUnneeded=true
+
+[Service]
+User=kvm
+Group=kvm
+# these are set here so they can be overriden in the config file
+Environment=CPU=host
+# TMP_QEMU_PARAMS should be read from /run/kvm/%i.conf for temporary
+# parameters, e.g. for installation, or migration
+Environment=TMP_QEMU_PARAMS=
+EnvironmentFile=/etc/vm/%i.conf
+EnvironmentFile=-/run/kvm/%i.conf
+{# we need "env" here, it expands the trailing parameters for us! #}
+ExecStart=/usr/bin/env /usr/bin/qemu-system-x86_64 -enable-kvm -name %i \
+  -monitor unix:/run/kvm/%i.mon,server,nowait \
+  -serial unix:/run/kvm/%i.serial,server,nowait \
+  -cpu ${CPU} -smp ${SMP} -m ${RAM} \
+  -net bridge,br=${BRIDGE} -net nic,model=virtio,macaddr=${MACADDR} \
+  -vnc :${VNCDISPLAY} -k ${KEYBOARDLANG} \
+  $DRIVES $TMP_QEMU_PARAMS
+ExecStartPost=/bin/rm -f /run/kvm/%i.conf
+ExecStop=/bin/rm -f /run/kvm/%i.conf
+ExecStop=/usr/sbin/kiss-vm-monitor %i powerdown
+TimeoutStopSec=60
+KillMode=control-group
+Restart=on-failure
+# qemu exit codes:
+# poweroff -> 0
+# panic -> just reboots, kvm doesn't exit (needs kernel.panic sysctl != 0)
+TimeoutSec=300
+
+[Install]
+# installation of dependencies for primary-vms.target is done via kiss-configure
+WantedBy=all-vms.target
+
+# {{ ansible_managed }}

@@ -17,6 +17,7 @@
     - libipc-system-simple-perl
     - libdigest-sha-perl
     - libyaml-perl
+    - libnet-openssh-perl
     - sudo
     - git
     - rsync
@@ -35,7 +36,7 @@
   copy: src={{item}} dest=/usr/sbin/{{item}}
     owner=root group=root mode=0555
   with_items:
-    - vm-monitor
+    - kiss-vm-monitor
     - kiss-overview
-    - nuke-vm
-
+    - kiss-nuke-vm
+    - kiss-boot-iso
