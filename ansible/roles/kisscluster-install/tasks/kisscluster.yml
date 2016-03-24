@@ -1,5 +1,5 @@
 - name: install kissclusterd
-  copy: src=/data/projects/kisscluster/kissclusterd dest=/usr/sbin/kissclusterd
+  copy: src=kissclusterd dest=/usr/sbin/kissclusterd
     owner=root group=root mode=0555
   notify: kissclusterd reload
 
