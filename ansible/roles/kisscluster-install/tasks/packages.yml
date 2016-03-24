@@ -40,3 +40,4 @@
     - kiss-overview
     - kiss-nuke-vm
     - kiss-boot-iso
+    - kiss-migrate

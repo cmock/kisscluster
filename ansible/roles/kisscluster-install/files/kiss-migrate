@@ -4,108 +4,173 @@ use IO::Socket::UNIX;
 use Config::Tiny;
 use IPC::System::Simple qw(systemx capturex runx EXIT_ANY);
 use Net::OpenSSH;
+use Data::Dumper;
 
 my $usage = "usage: $0 [--all] | vm-name
   Migrates a VM away from this host, or all when --all is given.
 ";
 
 my $iproute = '/sbin/ip';
-my $ssh = '/usr/bin/ssh';
 my $systemctl = '/bin/systemctl';
 my $drbdadm = '/sbin/drbdadm';
 my $kisscluster_conf = '/etc/kissclusterd.conf';
 
 # check for access to other host
-my $other = get_other_ipaddr;
+my $other = get_other_ipaddr();
 
 my $ssh = Net::OpenSSH->new($other);
 $ssh->error and die "ssh problem: " . $ssh->error;
 
+my $work = 0;
 while(my $opt = shift) {
-  print "Option: <$opt>\n";
+#  print "Option: <$opt>\n";
   if($opt eq '--all') {
-    # XXX find all
+    $work++;
+    my @vms = capturex($systemctl, '--state=active', '--no-legend',
+		       'list-units', 'vm@*');
+    for my $vm (@vms) {
+      $vm =~ /^vm\@(.*)\.service\s/ || next;
+      $vm = $1;
+      migrate($vm);
+    }
   } else {
     migrate($opt);
+    $work++;
   }
+}
+unless($work) {
+  die $usage;
 }
 
 sub migrate {
   my $vm = shift;
 
+  my @rollback;
+
   # is it even running?
   my $exitval = runx([0,3], $systemctl, '-q', 'is-active', "vm\@$vm.service");
   if($exitval == 3) {
-    print "VM $vm is not currently running.\n";
+    warn "VM $vm is not currently running.\n";
     return undef;
   } elsif($exitval != 0) {
-    print "VM $vm: problem with systemctl is-active? RC=$exitval\n";
+    warn "VM $vm: problem with systemctl is-active? RC=$exitval\n";
     return undef;
   }
 
-  # drbdadm net-options --protocol=C --allow-two-primaries <resource>
+  # actually calling the "net-options" command here can fail when the connection
+  # is not up; "adjust" seems to work...
+  unshift(@rollback, { both => [$drbdadm, 'adjust', $vm] });
   unless(on_both($drbdadm, 'net-options', '--protocol=C',
 		 '--allow-two-primaries', $vm)) {
+    rollback(\@rollback, $vm);
     return undef;
   }
 
-  # drbdadm primary auf beiden
+ # drbdadm primary auf beiden
+  unshift(@rollback, { other => [ $drbdadm, 'secondary', $vm ] });
   unless(on_both($drbdadm, 'primary', $vm)) {
+    rollback(\@rollback, $vm);
     return undef;
   }
 
   # start on B with added params:
   # -incoming tcp:0:port
   # create /run/kvm/$vm.conf on other...
+  unshift(@rollback, { other => [ '/bin/rm', "-f", "/run/kvm/$vm.conf" ] });
   unless(ssh_system({stdin_data => "TMP_QEMU_PARAMS=-incoming tcp:$other:1234"},
 		    "cat > /run/kvm/$vm.conf")) {
-    # XXX cleanup
-    print "VM $vm: cannot create /run/kvm/$vm.conf on other\n";
+    warn "VM $vm: cannot create /run/kvm/$vm.conf on other\n";
+    rollback(\@rollback, $vm);
     return undef;
   }
-  ssh_system($systemctl, 'start', "vm\@$vm.service");
 
-# in monitor:
+  unshift(@rollback, { other => [ $systemctl, 'stop', "vm\@$vm.service" ] });
+  unless(ssh_system($systemctl, 'start', "vm\@$vm.service")) {
+    warn "VM $vm: cannot start receiving instance on other\n";
+    rollback(\@rollback, $vm);
+    return undef;
+  }
 
-# migrate -d tcp:remote-addr:port
+  ## now it takes some time for the remote VM to be ready...
+  warn "VM $vm: giving remote some time to come up...\n";
+  sleep(10);
 
-# status:
+  # in monitor:
+  # migrate tcp:remote-addr:port
+  my $mon;
+  unless($mon = IO::Socket::UNIX->new(Type => SOCK_STREAM(),
+				      Peer => "/run/kvm/$vm.mon")) {
+    warn "VM $vm: error creating monitor socket /run/kvm/$vm.mon: $!\n";
+    rollback(\@rollback, $vm);
+    return undef;
+  }
+  print $mon "migrate tcp:$other:1234\n";
+  while(<$mon>) {
+    s/\r?\n$//;
+    print "VM $vm: mon1 <$_>\n";
+    next if /^QEMU.*monitor/; # welcome line
+    last if /migrate tcp:$other:1234/; # echo of command;
+				# only comes back when finished
+  }
+  print "VM $vm: done?\n";
+  print $mon "info migrate\n";
+  my($status, $time);
+  while(<$mon>) {
+    s/\r?\n$//;
+    print "VM $vm: mon2 <$_>\n";
+    if(/Migration status:\s+(.*)$/) {
+      $status = $1;
+    }
+    if(/total time:\s+(\d+)\s+milliseconds/) {
+      $time = $1;
+      last; # end of output
+    }
+  }
+  if($status eq 'failed') {
+    warn "VM $vm: migrate command failed\n";
+    rollback(\@rollback, $vm);
+    return undef;
+  }
+  # success. no rollback from this point on!
 
-# info migrate
-
-# zum schluß
-
-
-# drbdadm net-options --protocol=C <resource>
+  print "VM $vm: sending quit and waiting a bit\n";
+  print $mon "quit\n";
+  sleep(5);
+  close($mon);
+  undef @rollback;
+  runx(EXIT_ANY, $drbdadm, 'secondary', $vm);
+  on_both($drbdadm, 'adjust', $vm);
+  return 1;
+}
 
 
 # return a hash keyed by all local ip addresses
 sub get_other_ipaddr {
   my @res = qx|$iproute addr show|;
-  my %addrs;
+  my %myaddrs;
 
   foreach (@res) {
     /^\s+inet ([\d\.]+)\/\d+/ || next;
-    $addrs{$1}++;
+    $myaddrs{$1}++;
   }
 
-  my $cfg = Config::Tiny->read() ||
+  my $cfg = Config::Tiny->read('/etc/kissclusterd.conf') ||
     die "open $kisscluster_conf: $!\n";
   my @addrs = split(/\s+/, $cfg->{_}->{stor_addrs});
   my @oaddrs;
-  for (my @addrs) {
-    push(@oaddrs, $_) unless exists $addrs{$_};
+  for (@addrs) {
+    push(@oaddrs, $_) unless defined $myaddrs{$_};
   }
   if(scalar(@oaddrs) != 1) {
     die "could not find other's stor_addr from $kisscluster_conf\n";
   }
-  @oaddrs[0];
+  $oaddrs[0];
 }
 
 sub ssh_system {
   my $ex = $ssh->system(@_);
   unless($ex) {
-    print "ssh: $ssh->error\n";
+    warn "ssh: $ssh->error\n";
   }
   $ex;
 }
@@ -113,14 +178,33 @@ sub ssh_system {
 sub on_both {
   my $exitval = runx(EXIT_ANY, @_);
   if($exitval) {
-    print "VM $vm: problem with command on localhost.\n";
-    print "Command: ", join(" ", @_), "\n";
+    warn "problem with command on localhost.\n";
+    warn "Command: ", join(" ", @_), "\n";
     return undef;
   }
   unless(ssh_system(@_)) {
-    print "VM $vm: problem with command on other.\n";
-    print "Command: ", join(" ", @_), "\n";
+    warn "problem with command on other.\n";
+    warn "Command: ", join(" ", @_), "\n";
     return undef;
   }
   return 1;
 }
+
+sub rollback {
+  my($rb, $vm) = @_;
+
+  for my $action (@$rb) {
+    for my $where (qw(both other here)) {
+      next unless exists $action->{$where};
+      warn "VM $vm: ROLLBACK $where " . join(" ", @{$action->{$where}}) . "\n";
+      if($where eq 'both') {
+	on_both(@{$action->{both}});
+      } elsif($where eq 'other') {
+	ssh_system(@{$action->{$where}});
+      } elsif($where eq 'here') {
+	runx(EXIT_ANY, @{$action->{$where}});
+      }
+    }
+  }
+}
+
