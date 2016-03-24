@@ -1,5 +1,10 @@
 # -*- yaml -*-
 ---
+# group disks for access to DRBD devices
+- name: create "kvm" user
+  user: name=kvm comment="kvm virtualisation user" group=kvm
+    groups=disk home=/run/kvm system=yes state=present
+
 - name: install unit files
   template: src={{item}}.j2 dest=/etc/systemd/system/{{item}}
     owner=root group=root mode=0444
