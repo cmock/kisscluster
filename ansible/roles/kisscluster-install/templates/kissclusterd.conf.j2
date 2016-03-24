@@ -15,7 +15,7 @@ ping_timeout = 1
 # which UDP port to use for the keepalive protocol
 keepalive_port = 5324
 # secret for the network protocol
-keepalive_secret = "{{lookup('password', 'vm-config/' + cluster_name + '.secret', length=16) }}"
+keepalive_secret = "{{lookup('password', 'files/' + cluster_name + '.secret', length=16) }}"
 
 # priorities for the keepalive protocol
 base_priority = 100
