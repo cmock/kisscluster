@@ -1,6 +1,7 @@
 # -*- yaml -*-
 - name: install cluster1
   hosts: cluster1
+  sudo: yes
   roles:
     - { role: kisscluster-install, cluster_group: cluster1,
         source_dir: ".." }
