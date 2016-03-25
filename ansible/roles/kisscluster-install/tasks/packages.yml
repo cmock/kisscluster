@@ -22,6 +22,7 @@
     - git
     - rsync
     - ansible
+    - kpartx
 
 - name: remove some stuff
   apt: pkg={{item}} state=absent purge=yes
