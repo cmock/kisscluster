@@ -4,42 +4,56 @@ use IO::Socket::UNIX;
 use Config::Tiny;
 use IPC::System::Simple qw(systemx capturex runx EXIT_ANY);
 use Net::OpenSSH;
+use Getopt::Long;
 use Data::Dumper;
 
-my $usage = "usage: $0 [--all] | vm-name
+my $usage = "usage: $0 [--all] | [--or-shutdown] vm-name
   Migrates a VM away from this host, or all when --all is given.
+  --or-shutdown tries to migrate the VM, shuts it down on failure.
 ";
 
 my $iproute = '/sbin/ip';
 my $systemctl = '/bin/systemctl';
 my $drbdadm = '/sbin/drbdadm';
+my $kiss_vm_monitor = '/usr/sbin/kiss-vm-monitor';
 my $kisscluster_conf = '/etc/kissclusterd.conf';
+
+$SIG{TERM} = \&term_handler();
 
 # check for access to other host
 my $other = get_other_ipaddr();
 
-my $ssh = Net::OpenSSH->new($other);
-$ssh->error and die "ssh problem: " . $ssh->error;
+my($run_all, $or_shutdown);
+GetOptions("all" => \$run_all,
+	   "or-shutdown" => \$or_shutdown) || die $usage;
 
-my $work = 0;
-while(my $opt = shift) {
-#  print "Option: <$opt>\n";
-  if($opt eq '--all') {
-    $work++;
-    my @vms = capturex($systemctl, '--state=active', '--no-legend',
-		       'list-units', 'vm@*');
-    for my $vm (@vms) {
-      $vm =~ /^vm\@(.*)\.service\s/ || next;
-      $vm = $1;
-      migrate($vm);
-    }
-  } else {
-    migrate($opt);
-    $work++;
+my $ssh = Net::OpenSSH->new($other);
+if($ssh->error) {
+  warn "ssh problem: " . $ssh->error;
+  if(!$or_shutdown) {
+    exit(1);
   }
 }
-unless($work) {
+if(!$run_all && !@ARGV) {
+  warn "Need either --all or a VM name\n";
   die $usage;
+}
+
+if($run_all) {
+  my @vms = capturex($systemctl, '--state=active', '--no-legend',
+		  'list-units', 'vm@*');
+  for my $vm (@vms) {
+    $vm =~ /^vm\@(.*)\.service\s/ || next;
+    push(@ARGV, $1);
+  }
+}
+
+for my $vm (@ARGV) {
+  if($ssh->error && $or_shutdown) {
+    runx(EXIT_ANY, $kiss_vm_monitor, $vm, 'powerdown');
+  } elsif(!migrate($vm) && $or_shutdown) {
+    runx(EXIT_ANY, $kiss_vm_monitor, $vm, 'powerdown');
+  }
 }
 
 sub migrate {
@@ -48,12 +62,9 @@ sub migrate {
   my @rollback;
 
   # is it even running?
-  my $exitval = runx([0,3], $systemctl, '-q', 'is-active', "vm\@$vm.service");
-  if($exitval == 3) {
-    warn "VM $vm is not currently running.\n";
-    return undef;
-  } elsif($exitval != 0) {
-    warn "VM $vm: problem with systemctl is-active? RC=$exitval\n";
+  my $exitval = capturex(EXIT_ANY, $systemctl, 'is-active', "vm\@$vm.service");
+  if($exitval !~ /^active|deactivating/) {
+    warn "VM $vm is not currently running: $exitval.\n";
     return undef;
   }
 
@@ -208,3 +219,8 @@ sub rollback {
   }
 }
 
+# let's ignore SIGTERM as sent by systemd on --or-shutdown when the main
+# qemu process exits...
+sub term_handler {
+  warn "term_handler called\n";
+}
