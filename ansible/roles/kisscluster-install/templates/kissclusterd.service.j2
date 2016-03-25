@@ -12,6 +12,7 @@ ExecStart=/usr/sbin/kissclusterd -c /etc/kissclusterd.conf
 Restart=always
 User=kissclusterd
 Group=kissclusterd
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
