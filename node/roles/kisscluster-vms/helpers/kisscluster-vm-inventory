@@ -52,6 +52,10 @@ for my $g (keys %$db) {
   }
 }
 
+if(!scalar keys %$vm && !scalar keys %$db) {
+  die "You have no VMs defined.\n";
+}
+
 my $max_drbd_minor = -1;
 ## assign/generate DRBD minors
 for my $g (keys %$db) {
