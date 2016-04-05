@@ -9,6 +9,12 @@ cluster_members:
     stor_addr: 192.168.124.18
 prod_if: eth0
 stor_if: eth1
+## the vlan stuff is optional; prod_if is always the physical interface
+prod_vlan: 123
+vlan_tags:
+  - 124
+  - 125
+## end of optional vlan stuff
 stor_mtu: 9000
 prod_netmask: 255.255.255.0
 stor_netmask: 255.255.255.0
