@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description=Manage VMs without kissclusterd
+Requires=multi-user.target
+After=multi-user.target
+Conflicts=all-vms.target primary-vms.target no-vms.target kissclusterd.service
+
+[Install]
+
+# {{ ansible_managed }}

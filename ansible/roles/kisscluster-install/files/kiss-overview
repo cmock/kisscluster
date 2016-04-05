@@ -9,7 +9,7 @@ my $drbdoverview = '/usr/sbin/drbd-overview';
 check_systemd('kissclusterd.service');
 
 # target status
-my @targets = qw(all-vms.target primary-vms.target no-vms.target);
+my @targets = qw(all-vms.target primary-vms.target no-vms.target manual-vms.target);
 my $num = 0;
 my @active;
 for my $t (@targets) {

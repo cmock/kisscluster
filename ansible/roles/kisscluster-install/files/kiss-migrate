@@ -77,13 +77,6 @@ sub migrate {
     return undef;
   }
 
- # drbdadm primary auf beiden
-  unshift(@rollback, { other => [ $drbdadm, 'secondary', $vm ] });
-  unless(on_both($drbdadm, 'primary', $vm)) {
-    rollback(\@rollback, $vm);
-    return undef;
-  }
-
   # start on B with added params:
   # -incoming tcp:0:port
   # create /run/kvm/$vm.conf on other...
@@ -91,6 +84,15 @@ sub migrate {
   unless(ssh_system({stdin_data => "TMP_QEMU_PARAMS=-incoming tcp:$other:1234"},
 		    "cat > /run/kvm/$vm.conf")) {
     warn "VM $vm: cannot create /run/kvm/$vm.conf on other\n";
+    rollback(\@rollback, $vm);
+    return undef;
+  }
+
+  # drbdadm primary on both nodes
+  # AFTER we creatd the /run/kvm/$vm.conf, because of possible races
+  # when the other tries to start the VM
+  unshift(@rollback, { other => [ $drbdadm, 'secondary', $vm ] });
+  unless(on_both($drbdadm, 'primary', $vm)) {
     rollback(\@rollback, $vm);
     return undef;
   }

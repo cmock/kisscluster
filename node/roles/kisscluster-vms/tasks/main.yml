@@ -85,6 +85,17 @@
   with_items: active_vm
   when: item.primary_on == inventory_hostname
 
+- name: mkdir primary-vms.target.conflicts
+  file: dest=/etc/systemd/system/primary-vms.target.conflicts
+    state=directory owner=root group=root mode=0755
+  
+- name: setup primary-vms
+  file: src=/etc/systemd/system/vm@.service
+    dest=/etc/systemd/system/primary-vms.target.conflicts/vm@{{item.name}}.service
+    state=link
+  with_items: active_vm
+  when: item.primary_on != inventory_hostname
+
 - name: systemctl daemon-reload
   command: /bin/systemctl daemon-reload
   

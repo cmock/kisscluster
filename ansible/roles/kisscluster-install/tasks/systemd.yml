@@ -12,6 +12,7 @@
     - no-vms.target
     - primary-vms.target
     - all-vms.target
+    - manual-vms.target
     - vm@.service
     - drbd-resource@.service
 
@@ -25,6 +26,7 @@
     - no-vms.target
     - primary-vms.target
     - all-vms.target
+    - manual-vms.target
 
 - name: install drbd-primary-helper
   template: src=drbd-primary-helper.j2 dest=/sbin/drbd-primary-helper
