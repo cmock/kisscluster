@@ -1,5 +1,11 @@
 # {{ ansible_managed }}
 
 allow br0
+{% if prod_vlan %}
+allow br{{prod_vlan}}
+{% endif %}
+{% for tag in vlan_tags %}
+allow br{{tag}}
+{% endfor %}
 
 # {{ ansible_managed }}
