@@ -12,5 +12,6 @@ DRIVES=-device virtio-scsi-pci,id=scsi -device scsi-hd,drive=sda \
   -device scsi-hd,drive={{"sd%c" | format(disk.drbd_volume+97) }} \
   -drive file=/dev/drbd/by-res/{{item.name}}/{{disk.drbd_volume}},id={{"sd%c" | format(disk.drbd_volume+97) }},if=none,aio=native,discard=on \
 {% endfor %}
-
+{# add another CDROM for windows virtio installation #}
+  -drive index=0,media=cdrom 
 # {{ ansible_managed }}

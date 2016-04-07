@@ -8,7 +8,7 @@ use IO::Socket::UNIX;
 my $usage = "usage: $0 vm-name command
 commands:
 - powerdown
-- iso imagefilename
+- iso # imagefilename
 - reset
 ";
 
@@ -29,12 +29,13 @@ if($cmd eq 'powerdown') {
   print "\n";
   exit(0);
 } elsif($cmd eq 'iso') {
+  my $num = shift;
   my $iso = shift;
   if($iso) {
     -f $iso || die "ISO $iso not found\n";
-    print $mon "change ide1-cd0 $iso\n";
+    print $mon "change ide$num-cd0 $iso\n";
   } else {
-    print $mon "eject ide1-cd0\n";
+    print $mon "eject ide$num-cd0\n";
   }
 } elsif($cmd eq 'reset') {
   print $mon "system_reset\n";
