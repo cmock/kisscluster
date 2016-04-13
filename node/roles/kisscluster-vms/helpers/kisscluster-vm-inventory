@@ -78,6 +78,12 @@ for my $g (keys %$vm) {
   unless(exists $vm->{$g}->{more_disks}) {
     $vm->{$g}->{more_disks} = [];
   }
+  ## fixup LV sizes, must be lower-case for ansible lvol module...
+  $vm->{$g}->{root_disk_size} =~ tr/[A-Z]/[a-z]/;
+  for my $m (@{$vm->{$g}->{more_disks}}) {
+    $m->{size} =~ tr/[A-Z]/[a-z]/;
+  }
+
   my $volume = 0;
   for my $md (@{$vm->{$g}->{more_disks}}) {
     if($volume >= 3) {
