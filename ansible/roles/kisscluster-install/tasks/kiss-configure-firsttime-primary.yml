@@ -24,4 +24,7 @@
     dest=/srv/kiss-configure/group_vars/{{cluster_name}}.yml
     owner=root group=adm mode=0660
 
+- name: copy .gitignore
+  copy: src=gitignore dest=/srv/kiss-configure/.gitignore
+    owner=root group=adm mode=0660
     

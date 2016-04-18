@@ -21,4 +21,5 @@
     - vm-config/
     - ansible-hosts
     - ansible.cfg
+    - .gitignore
     
