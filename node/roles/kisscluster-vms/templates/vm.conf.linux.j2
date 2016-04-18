@@ -6,6 +6,7 @@ BRIDGE={{item.network_bridge}}
 MACADDR={{mac_addr_base}}:{{"%x" | format(item.drbd_minor)}}
 VNCDISPLAY={{item.drbd_minor}}
 KEYBOARDLANG={{vnc_keyboard_lang}}
+RTC=utc
 DRIVES=-device virtio-scsi-pci,id=scsi -device scsi-hd,drive=sda \
   -drive file=/dev/drbd/by-res/{{item.name}}/0,id=sda,if=none,aio=native,discard=on \
 {% for disk in item.more_disks %}

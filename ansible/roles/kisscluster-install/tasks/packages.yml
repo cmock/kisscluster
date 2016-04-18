@@ -9,6 +9,7 @@
     - lvm2
     - drbd-utils
     - qemu-kvm
+    - qemu-utils
     - socat
     - iproute2
     - fping

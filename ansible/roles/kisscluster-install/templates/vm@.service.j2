@@ -24,6 +24,7 @@ ExecStart=/usr/bin/env /usr/bin/qemu-system-x86_64 -enable-kvm -name %i \
   -monitor unix:/run/kvm/%i.mon,server,nowait \
   -serial unix:/run/kvm/%i.serial,server,nowait \
   -usbdevice tablet \
+  -rtc base=${RTC} \
   -cpu ${CPU} -smp ${SMP} -m ${RAM} \
   -net bridge,br=${BRIDGE} -net nic,model=virtio,macaddr=${MACADDR} \
   -vnc :${VNCDISPLAY} -k ${KEYBOARDLANG} \
