@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# Configuration for vm@.service for VM {{ item.name }}
+SMP={{item.cpus}}
+RAM={{ item.ram_megs }}
+BRIDGE={{item.network_bridge}}
+MACADDR={{mac_addr_base}}:{{"%x" | format(item.drbd_minor)}}
+VNCDISPLAY={{item.drbd_minor}}
+KEYBOARDLANG={{vnc_keyboard_lang}}
+RTC=utc
+DRIVES=-drive file=/dev/drbd/by-res/{{item.name}}/0 \
+{% for disk in item.more_disks %}
+  -drive file=/dev/drbd/by-res/{{item.name}}/{{disk.drbd_volume}} \
+{% endfor %}
+
+# {{ ansible_managed }}
