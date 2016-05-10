@@ -11,4 +11,6 @@
 - include: qemu.yml
 
 - include: kiss-configure.yml
+
+- include: root-ssh.yml
   
