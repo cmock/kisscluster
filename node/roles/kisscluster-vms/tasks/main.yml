@@ -96,6 +96,12 @@
   with_items: active_vm
   when: item.primary_on != inventory_hostname
 
+# copy <cluster>.yml to /etc/vms for kiss-migrate
+- name: copy cluster.yml for kiss-migrate
+  copy: dest=/etc/vm/{{cluster_name}}.yml
+    src="{{vm_config_dir}}/{{cluster_name}}.yml"
+    owner=root group=root mode=0444
+  
 - name: systemctl daemon-reload
   command: /bin/systemctl daemon-reload
   
