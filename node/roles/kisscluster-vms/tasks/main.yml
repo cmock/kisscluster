@@ -98,7 +98,7 @@
 
 # copy <cluster>.yml to /etc/vms for kiss-migrate
 - name: copy cluster.yml for kiss-migrate
-  copy: dest=/etc/vm/{{cluster_name}}.yml
+  copy: dest=/etc/vm/vms.yml
     src="{{vm_config_dir}}/{{cluster_name}}.yml"
     owner=root group=root mode=0444
   

@@ -5,10 +5,13 @@ use Config::Tiny;
 use IPC::System::Simple qw(systemx capturex runx EXIT_ANY);
 use Net::OpenSSH;
 use Getopt::Long;
+use YAML qw(LoadFile DumpFile);
+use Sys::Hostname;
 use Data::Dumper;
 
 my $usage = "usage: $0 [--all] | [--or-shutdown] vm-name
   Migrates a VM away from this host, or all when --all is given.
+  --primary, --secondary migrate the primary/secondary VMs.
   --or-shutdown tries to migrate the VM, shuts it down on failure.
 ";
 
@@ -17,15 +20,24 @@ my $systemctl = '/bin/systemctl';
 my $drbdadm = '/sbin/drbdadm';
 my $kiss_vm_monitor = '/usr/sbin/kiss-vm-monitor';
 my $kisscluster_conf = '/etc/kissclusterd.conf';
+my $vm_list = '/etc/vm/vms.yml';
+my $hostname = hostname();
 
 $SIG{TERM} = \&term_handler();
 
 # check for access to other host
 my $other = get_other_ipaddr();
 
-my($run_all, $or_shutdown);
+my($run_all, $run_primary, $run_secondary, $or_shutdown, $dry_run) = (0,0,0,0,0);
 GetOptions("all" => \$run_all,
+	   "primary" => \$run_primary,
+	   "secondary" => \$run_secondary,
+	   "dry-run" => \$dry_run,
 	   "or-shutdown" => \$or_shutdown) || die $usage;
+
+if(($run_all + $run_primary + $run_secondary) > 1) {
+  die "--all, --primary, --secondary are mutually exclusive.\n\n$usage";
+}
 
 my $ssh = Net::OpenSSH->new($other);
 if($ssh->error) {
@@ -34,17 +46,26 @@ if($ssh->error) {
     exit(1);
   }
 }
-if(!$run_all && !@ARGV) {
-  warn "Need either --all or a VM name\n";
+if(!($run_all || $run_primary || $run_secondary) && !@ARGV) {
+  warn "Need either --all/primary/secondary or a VM name\n";
   die $usage;
 }
 
+my $vms = LoadFile($vm_list);
+
 if($run_all) {
-  my @vms = capturex($systemctl, '--state=active', '--no-legend',
-		  'list-units', 'vm@*');
-  for my $vm (@vms) {
-    $vm =~ /^vm\@(.*)\.service\s/ || next;
-    push(@ARGV, $1);
+  for my $vm (@{$vms->{active_vm}}) {
+    push(@ARGV, $vm->{name});
+  }
+} elsif($run_primary) {
+  for my $vm (@{$vms->{active_vm}}) {
+    $vm->{primary_on} eq $hostname || next;
+    push(@ARGV, $vm->{name});
+  }
+} elsif($run_secondary) {
+  for my $vm (@{$vms->{active_vm}}) {
+    $vm->{primary_on} eq $hostname && next;
+    push(@ARGV, $vm->{name});
   }
 }
 
@@ -58,6 +79,11 @@ for my $vm (@ARGV) {
 
 sub migrate {
   my $vm = shift;
+
+  if($dry_run) {
+    print "migrate($vm)\n";
+    return 1;
+  }
 
   my @rollback;
 
