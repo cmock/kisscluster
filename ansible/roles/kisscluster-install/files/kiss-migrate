@@ -174,7 +174,7 @@ sub migrate {
 
   print "VM $vm: sending quit and waiting a bit\n";
   print $mon "quit\n";
-  sleep(5);
+  sleep(10);
   close($mon);
   undef @rollback;
   runx(EXIT_ANY, $drbdadm, 'secondary', $vm);
@@ -244,6 +244,8 @@ sub rollback {
 	runx(EXIT_ANY, @{$action->{$where}});
       }
     }
+    warn "VM $vm: ROLLBACK waiting a bit...\n";
+    sleep(5);
   }
 }
 
