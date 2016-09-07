@@ -143,6 +143,8 @@ sub migrate {
     rollback(\@rollback, $vm);
     return undef;
   }
+  print $mon "migrate_set_capability auto-converge on\n";
+  print $mon "migrate_set_capability xbzrle on\";
   print $mon "migrate tcp:$other:1234\n";
   while(<$mon>) {
     s/\r?\n$//;
